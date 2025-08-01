@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Login Test App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Register</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -13,15 +13,14 @@
       min-height: 100vh;
       background-color: #f4f4f4;
     }
-    .login-container {
+    .register-container {
       background-color: #fff;
       padding: 20px;
       border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-      width: 320px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      width: 300px;
     }
-    input[type="text"],
-    input[type="password"] {
+    input[type="text"], input[type="password"] {
       width: 100%;
       padding: 10px;
       margin: 8px 0;
@@ -42,68 +41,64 @@
       opacity: 0.9;
     }
     .message {
-      color: red;
       text-align: center;
       margin-top: 10px;
     }
-    .register-link {
-      display: block;
-      margin-top: 15px;
-      text-align: center;
-      color: #007bff;
-      text-decoration: none;
-      font-size: 14px;
+    .message.success {
+      color: green;
     }
-    .register-link:hover {
-      text-decoration: underline;
-      cursor: pointer;
+    .message.error {
+      color: red;
+    }
+    a {
+      display: block;
+      margin-top: 12px;
+      text-align: center;
+      color: #555;
+      text-decoration: none;
     }
   </style>
 </head>
 <body>
-  <div class="login-container">
-    <h2>Login</h2>
-    <form id="loginForm">
+  <div class="register-container">
+    <h2>Register</h2>
+    <form id="registerForm">
       <label for="username">Username:</label>
       <input type="text" id="username" name="username" required />
       <label for="password">Password:</label>
       <input type="password" id="password" name="password" required />
-      <button type="submit">Login</button>
+      <button type="submit">Register</button>
       <p id="message" class="message"></p>
     </form>
-    <a href="/register.html" class="register-link">Register a new account</a>
+    <a href="/">Back to Login</a>
   </div>
 
   <script>
-    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    document.getElementById('registerForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const username = document.getElementById('username').value;
-      const password = document.getElementById('password').value;
+
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value.trim();
       const messageElement = document.getElementById('message');
 
       try {
-        const response = await fetch('/login', {
+        const res = await fetch('/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username, password })
         });
-
-        const data = await response.json();
-        console.log("Login response:", data); // ✅ DEBUG
+        const data = await res.json();
 
         if (data.success) {
-          localStorage.setItem('role', data.role); // ✅ Save role
-          messageElement.style.color = 'green';
-          messageElement.textContent = 'Login successful! Redirecting...';
-          window.location.href = '/dashboard';
-        } else {
-          messageElement.style.color = 'red';
           messageElement.textContent = data.message;
+          messageElement.className = 'message success';
+        } else {
+          messageElement.textContent = data.message;
+          messageElement.className = 'message error';
         }
       } catch (err) {
-        console.error('Login error:', err);
-        messageElement.style.color = 'red';
-        messageElement.textContent = 'Something went wrong!';
+        messageElement.textContent = 'Error: ' + err.message;
+        messageElement.className = 'message error';
       }
     });
   </script>
