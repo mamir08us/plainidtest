@@ -132,6 +132,22 @@ app.get('/dashboard', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
+app.get('/me', (req, res) => {
+  if (!req.session.user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  // You can optionally map ForgeRock user info to roles here
+  const userInfo = {
+    name: req.session.user.name,
+    email: req.session.user.email,
+    role: req.session.user.role || 'customer' // Example fallback
+  };
+
+  res.json(userInfo);
+});
+
+
 // 🚪 Logout
 app.get('/logout', (req, res) => {
   req.session.destroy(() => {
