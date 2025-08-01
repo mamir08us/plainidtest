@@ -14,15 +14,39 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Login route
+//app.post('/login', (req, res) => {
+//    const { username, password } = req.body;
+
+//    if (username === STATIC_USERNAME && password === STATIC_PASSWORD) {
+//        res.json({ success: true, message: 'Login successful' });
+//    } else {
+//        res.status(401).json({ success: false, message: 'Invalid username or password' });
+//    }
+//});
+
+const users = {
+    'testuser': { password: 'password123', role: 'customer' },
+    'adminuser': { password: 'adminpass', role: 'admin' }
+};
+
 app.post('/login', (req, res) => {
     const { username, password } = req.body;
+    const user = users[username];
 
-    if (username === STATIC_USERNAME && password === STATIC_PASSWORD) {
-        res.json({ success: true, message: 'Login successful' });
+    if (user && user.password === password) {
+        res.json({
+            success: true,
+            message: 'Login successful',
+            role: user.role // ✅ This is what your frontend uses
+        });
     } else {
-        res.status(401).json({ success: false, message: 'Invalid username or password' });
+        res.status(401).json({
+            success: false,
+            message: 'Invalid username or password'
+        });
     }
 });
+
 
 // Example protected route (after successful login)
 //app.get('/dashboard', (req, res) => {
