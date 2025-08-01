@@ -25,9 +25,16 @@ app.post('/login', (req, res) => {
 });
 
 // Example protected route (after successful login)
+//app.get('/dashboard', (req, res) => {
+//    res.send('<h1>Welcome to the Dashboard!</h1><p>You have successfully logged in.</p>');
+//});
+
+const path = require('path');
+
 app.get('/dashboard', (req, res) => {
-    res.send('<h1>Welcome to the Dashboard!</h1><p>You have successfully logged in.</p>');
+    res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
+
 
 // Start the server
 app.listen(port, () => {
