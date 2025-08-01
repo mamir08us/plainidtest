@@ -164,7 +164,6 @@ app.listen(port, () => {
 
 */
 
-
 const express = require('express');
 const axios = require('axios');
 const session = require('express-session');
@@ -173,24 +172,29 @@ const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Static user store (used only for local login & registration)
+// Static user store (for local login & registration)
 const users = {
   'testuser': { password: 'password123', role: 'customer' },
   'adminuser': { password: 'adminpass', role: 'admin' }
 };
 
-// ForgeRock OAuth Config (Bravo realm)
+// ForgeRock Bravo realm configuration
 const CLIENT_ID = 'plainid_test_app';
 const CLIENT_SECRET = 'Admin@12345';
 const REDIRECT_URI = 'https://plainid.onrender.com/callback';
 const FORGEROCK_AUTH_URL = 'https://openam-acnemea20230705.forgeblocks.com:443/am/oauth2/realms/root/realms/bravo/authorize';
 const FORGEROCK_TOKEN_URL = 'https://openam-acnemea20230705.forgeblocks.com:443/am/oauth2/realms/root/realms/bravo/access_token';
 const FORGEROCK_USERINFO_URL = 'https://openam-acnemea20230705.forgeblocks.com:443/am/oauth2/realms/root/realms/bravo/userinfo';
+const FORGEROCK_LOGOUT_URL = 'https://openam-acnemea20230705.forgeblocks.com:443/am/oauth2/realms/root/realms/bravo/logout';
 
 // Middleware
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(session({ secret: 'keyboard cat', resave: false, saveUninitialized: true }));
+app.use(session({
+  secret: 'keyboard cat',
+  resave: false,
+  saveUninitialized: true
+}));
 
 // Local Login
 app.post('/login', (req, res) => {
@@ -199,7 +203,7 @@ app.post('/login', (req, res) => {
 
   if (user && user.password === password) {
     req.session.user = { username, role: user.role };
-    req.session.accessToken = 'static'; // flag for logged in
+    req.session.accessToken = 'static'; // to mark as logged in
     return res.json({ success: true, role: user.role, message: 'Login successful' });
   }
   res.status(401).json({ success: false, message: 'Invalid username or password' });
@@ -254,7 +258,7 @@ app.get('/callback', async (req, res) => {
 
     const user = userInfoRes.data;
 
-    // Assign role based on username/email from ForgeRock
+    // Determine role
     if (user.email === 'admin@example.com' || user.preferred_username === 'adminuser') {
       user.role = 'admin';
     } else {
@@ -271,32 +275,33 @@ app.get('/callback', async (req, res) => {
   }
 });
 
-// Dashboard (protected)
+// Dashboard
 app.get('/dashboard', (req, res) => {
   if (!req.session.accessToken) return res.redirect('/');
   res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
-// /me route returns user info (used by dashboard.js)
+// User Info
 app.get('/me', (req, res) => {
   if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
   const { name, email, username, role } = req.session.user;
   res.json({ name, email, username, role });
 });
 
-// Logout
-
+// Logout with message
 app.get('/logout', (req, res) => {
+  const redirectAfterLogout = 'https://plainid.onrender.com/?logged_out=true';
   req.session.destroy(err => {
     if (err) {
       console.error('Logout error:', err);
       return res.status(500).send('Logout failed');
     }
-    res.clearCookie('connect.sid'); // optional, ensures session cookie is removed
-    res.redirect('/');
+    res.clearCookie('connect.sid');
+
+    const logoutUrl = `${FORGEROCK_LOGOUT_URL}?post_logout_redirect_uri=${encodeURIComponent(redirectAfterLogout)}`;
+    res.redirect(logoutUrl);
   });
 });
-
 
 // Start server
 app.listen(port, () => {

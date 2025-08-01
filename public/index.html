@@ -42,9 +42,14 @@
       opacity: 0.9;
     }
     .message {
-      color: red;
       text-align: center;
       margin-top: 10px;
+    }
+    .message.success {
+      color: green;
+    }
+    .message.error {
+      color: red;
     }
     .register-link {
       display: block;
@@ -57,6 +62,11 @@
     .register-link:hover {
       text-decoration: underline;
       cursor: pointer;
+    }
+    .divider {
+      text-align: center;
+      margin: 15px 0;
+      color: #888;
     }
   </style>
 </head>
@@ -71,15 +81,29 @@
       <button type="submit">Login</button>
       <p id="message" class="message"></p>
     </form>
+
     <a href="/register.html" class="register-link">Register a new account</a>
+
+    <div class="divider">OR</div>
+
+    <button onclick="window.location.href='/auth/forgerock'">Login with ForgeRock</button>
   </div>
 
   <script>
+    const messageElement = document.getElementById('message');
+
+    // Show logout success message if redirected after logout
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('logged_out') === 'true') {
+      messageElement.textContent = 'You have successfully signed out.';
+      messageElement.className = 'message success';
+    }
+
+    // Handle local login
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const username = document.getElementById('username').value;
       const password = document.getElementById('password').value;
-      const messageElement = document.getElementById('message');
 
       try {
         const response = await fetch('/login', {
@@ -89,20 +113,22 @@
         });
 
         const data = await response.json();
-        console.log("Login response:", data); // ✅ DEBUG
+        console.log("Login response:", data);
 
         if (data.success) {
-          localStorage.setItem('role', data.role); // ✅ Save role
-          messageElement.style.color = 'green';
+          localStorage.setItem('role', data.role);
+          messageElement.className = 'message success';
           messageElement.textContent = 'Login successful! Redirecting...';
-          window.location.href = '/dashboard';
+          setTimeout(() => {
+            window.location.href = '/dashboard';
+          }, 800);
         } else {
-          messageElement.style.color = 'red';
+          messageElement.className = 'message error';
           messageElement.textContent = data.message;
         }
       } catch (err) {
         console.error('Login error:', err);
-        messageElement.style.color = 'red';
+        messageElement.className = 'message error';
         messageElement.textContent = 'Something went wrong!';
       }
     });
