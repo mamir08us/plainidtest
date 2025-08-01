@@ -1,30 +1,3 @@
-<!--
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Dashboard</title>
-  <style>
-    body { font-family: Arial; margin: 20px; }
-    nav a { margin-right: 15px; }
-  </style>
-</head>
-<body>
-  <h1>Welcome to the Dashboard</h1>
-  <nav>
-    <a href="/dashboard.html">Dashboard</a>
-    <a href="/accounts.html">Accounts</a>
-    <a href="/branches.html">Branches</a>
-    <a href="/admin.html">Admin</a>
-  </nav>
-  <p>This is your main dashboard.</p>
-</body>
-</html>
--->
-
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -33,26 +6,21 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      background-color: #f8f8f8;
-      margin: 0;
+      background-color: #f4f4f4;
       padding: 40px;
       text-align: center;
     }
     h1 {
-      margin-bottom: 30px;
-    }
-    .nav {
-      display: flex;
-      justify-content: center;
-      gap: 20px;
+      margin-bottom: 20px;
     }
     .nav a {
       display: inline-block;
+      margin: 10px;
       padding: 12px 24px;
       background-color: #4CAF50;
       color: white;
-      border-radius: 6px;
       text-decoration: none;
+      border-radius: 5px;
       font-weight: bold;
     }
     .nav a:hover {
@@ -61,7 +29,7 @@
   </style>
 </head>
 <body>
-  <h1>Welcome to the Banking App Dashboard</h1>
+  <h1>Welcome to the Banking Dashboard</h1>
 
   <div class="nav">
     <a href="/accounts.html">Accounts</a>
@@ -70,9 +38,9 @@
   </div>
 
   <script>
-    // Show admin link if role is admin
-    const userRole = localStorage.getItem("role");
-    if (userRole === "admin") {
+    const role = localStorage.getItem("role");
+    console.log("Logged-in role:", role); // Debug
+    if (role === "admin") {
       document.getElementById("adminLink").style.display = "inline-block";
     }
   </script>
