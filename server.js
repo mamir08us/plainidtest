@@ -285,11 +285,18 @@ app.get('/me', (req, res) => {
 });
 
 // Logout
+
 app.get('/logout', (req, res) => {
-  req.session.destroy(() => {
+  req.session.destroy(err => {
+    if (err) {
+      console.error('Logout error:', err);
+      return res.status(500).send('Logout failed');
+    }
+    res.clearCookie('connect.sid'); // optional, ensures session cookie is removed
     res.redirect('/');
   });
 });
+
 
 // Start server
 app.listen(port, () => {

@@ -122,7 +122,15 @@
 </head>
 <body>
   <button id="logoutBtn">Logout</button>
-
+  <script>
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      // clear localStorage (if role stored)
+      localStorage.clear();
+      // go to logout endpoint to destroy session
+      window.location.href = '/logout';
+    });
+  </script>
+  
   <h1 id="welcomeText">Welcome to the Banking Dashboard</h1>
 
   <div class="nav">
