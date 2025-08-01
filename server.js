@@ -24,11 +24,20 @@ app.use(express.static(path.join(__dirname, 'public')));
 //    }
 //});
 
+const express = require('express');
+const path = require('path');
+const app = express();
+const port = 3000;
+
 const users = {
     'testuser': { password: 'password123', role: 'customer' },
     'adminuser': { password: 'adminpass', role: 'admin' }
 };
 
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Login handler
 app.post('/login', (req, res) => {
     const { username, password } = req.body;
     const user = users[username];
@@ -37,7 +46,7 @@ app.post('/login', (req, res) => {
         res.json({
             success: true,
             message: 'Login successful',
-            role: user.role // ✅ This is what your frontend uses
+            role: user.role
         });
     } else {
         res.status(401).json({
@@ -47,18 +56,11 @@ app.post('/login', (req, res) => {
     }
 });
 
-
-// Example protected route (after successful login)
-//app.get('/dashboard', (req, res) => {
-//    res.send('<h1>Welcome to the Dashboard!</h1><p>You have successfully logged in.</p>');
-//});
-
+// Serve dashboard
 app.get('/dashboard', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
-
-// Start the server
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
 });
