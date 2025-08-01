@@ -288,7 +288,7 @@ app.get('/me', (req, res) => {
   res.json({ name, email, username, role });
 });
 
-// Logout with message
+// Logout route: clear session and redirect with logout message
 app.get('/logout', (req, res) => {
   const redirectAfterLogout = 'https://plainid.onrender.com/?logged_out=true';
   req.session.destroy(err => {
@@ -297,11 +297,16 @@ app.get('/logout', (req, res) => {
       return res.status(500).send('Logout failed');
     }
     res.clearCookie('connect.sid');
-
-    const logoutUrl = `${FORGEROCK_LOGOUT_URL}?post_logout_redirect_uri=${encodeURIComponent(redirectAfterLogout)}`;
-    res.redirect(logoutUrl);
+    res.redirect(redirectAfterLogout);
   });
 });
+
+// Auth route with prompt=login to force fresh login on each auth attempt
+app.get('/auth/forgerock', (req, res) => {
+  const authUrl = `${FORGEROCK_AUTH_URL}?response_type=code&client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=openid%20profile%20email&prompt=login`;
+  res.redirect(authUrl);
+});
+
 
 // Start server
 app.listen(port, () => {
