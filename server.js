@@ -86,8 +86,10 @@ app.get('/auth/forgerock', (req, res) => {
 // 🔁 Handle OAuth2 callback
 app.get('/callback', async (req, res) => {
   const { code } = req.query;
+  console.log('📥 Received code:', code);
 
   try {
+    console.log('🔁 Requesting access token from:', FORGEROCK_TOKEN_URL);
     const tokenRes = await axios.post(
       FORGEROCK_TOKEN_URL,
       new URLSearchParams({
@@ -97,11 +99,17 @@ app.get('/callback', async (req, res) => {
         client_id: CLIENT_ID,
         client_secret: CLIENT_SECRET
       }),
-      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        }
+      }
     );
 
     const accessToken = tokenRes.data.access_token;
     req.session.accessToken = accessToken;
+    console.log('✅ Access token received:', accessToken);
+
 
     // 🔎 Get user profile (optional but useful)
     const userInfoRes = await axios.get(FORGEROCK_USERINFO_URL, {
