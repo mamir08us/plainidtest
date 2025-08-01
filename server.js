@@ -62,7 +62,7 @@ const app = express();
 const port = 3000;
 
 // 🔐 ForgeRock Bravo Realm Configuration
-const CLIENT_ID = 'plainid'; 
+const CLIENT_ID = 'plainid_test_app'; 
 const CLIENT_SECRET = 'Admin@12345'; 
 const REDIRECT_URI = 'https://plainid.onrender.com/callback';
 
