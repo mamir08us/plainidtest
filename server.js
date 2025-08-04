@@ -12,15 +12,40 @@ const users = {
   'adminuser': { password: 'adminpass', role: 'admin' }
 };
 
-// ForgeRock Bravo realm configuration
+// In-memory asset data
+const accounts = [
+  { id: 'A101', name: 'Savings Account', type: 'Savings', balance: 5000 },
+  { id: 'A102', name: 'Checking Account', type: 'Checking', balance: 1200 }
+];
+
+const branches = [
+  { id: 'B001', name: 'Main Branch', location: 'New York' },
+  { id: 'B002', name: 'West Branch', location: 'California' }
+];
+
+const creditCards = [
+  { id: 'C101', type: 'Visa', limit: 10000, holder: 'testuser' },
+  { id: 'C102', type: 'MasterCard', limit: 15000, holder: 'adminuser' }
+];
+
+const loans = [
+  { id: 'L201', amount: 20000, status: 'approved' },
+  { id: 'L202', amount: 15000, status: 'pending' }
+];
+
+const investments = [
+  { id: 'I301', name: 'Mutual Fund A', amount: 8000 },
+  { id: 'I302', name: 'Stock XYZ', amount: 12000 }
+];
+
+// ForgeRock OAuth2 settings
 const CLIENT_ID = 'plainid_test_app';
 const CLIENT_SECRET = 'Admin@12345';
 const REDIRECT_URI = 'https://plainid.onrender.com/callback';
-const FORGEROCK_AUTH_URL = 'https://openam-acnemea20230705.forgeblocks.com/am/oauth2/realms/root/realms/bravo/authorize';
-const FORGEROCK_TOKEN_URL = 'https://openam-acnemea20230705.forgeblocks.com/am/oauth2/realms/root/realms/bravo/access_token';
-const FORGEROCK_USERINFO_URL = 'https://openam-acnemea20230705.forgeblocks.com/am/oauth2/realms/root/realms/bravo/userinfo';
+const FORGEROCK_AUTH_URL = 'https://openam-acnemea20230705.forgeblocks.com:443/am/oauth2/realms/root/realms/bravo/authorize';
+const FORGEROCK_TOKEN_URL = 'https://openam-acnemea20230705.forgeblocks.com:443/am/oauth2/realms/root/realms/bravo/access_token';
+const FORGEROCK_USERINFO_URL = 'https://openam-acnemea20230705.forgeblocks.com:443/am/oauth2/realms/root/realms/bravo/userinfo';
 
-// Middleware
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(session({
@@ -29,37 +54,10 @@ app.use(session({
   saveUninitialized: true
 }));
 
-// Static data for assets (mock for PlainID evaluation)
-const accounts = [
-  { id: 'A101', type: 'savings', owner: 'testuser', balance: 1200 },
-  { id: 'A102', type: 'checking', owner: 'adminuser', balance: 9800 }
-];
-
-const branches = [
-  { id: 'B1', name: 'Main Branch', location: 'New York' },
-  { id: 'B2', name: 'Downtown Branch', location: 'Chicago' }
-];
-
-const creditCards = [
-  { id: 'C1', type: 'platinum', holder: 'testuser', limit: 10000 },
-  { id: 'C2', type: 'gold', holder: 'adminuser', limit: 20000 }
-];
-
-const loans = [
-  { id: 'L1', type: 'home', applicant: 'testuser', amount: 300000 },
-  { id: 'L2', type: 'auto', applicant: 'adminuser', amount: 25000 }
-];
-
-const investments = [
-  { id: 'I1', portfolio: 'stocks', owner: 'testuser', value: 15000 },
-  { id: 'I2', portfolio: 'bonds', owner: 'adminuser', value: 20000 }
-];
-
-// Local Login
+// Local login
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
   const user = users[username];
-
   if (user && user.password === password) {
     req.session.user = { username, role: user.role };
     req.session.accessToken = 'static';
@@ -68,25 +66,29 @@ app.post('/login', (req, res) => {
   res.status(401).json({ success: false, message: 'Invalid username or password' });
 });
 
-// Registration
+// Register
 app.post('/register', (req, res) => {
   const { username, password } = req.body;
-  if (!username || !password) return res.status(400).json({ success: false, message: 'Username and password required' });
-  if (users[username]) return res.status(400).json({ success: false, message: 'Username already exists' });
-
+  if (!username || !password) {
+    return res.status(400).json({ success: false, message: 'Username and password required' });
+  }
+  if (users[username]) {
+    return res.status(400).json({ success: false, message: 'Username already exists' });
+  }
   users[username] = { password, role: 'customer' };
-  res.json({ success: true, message: 'Registration successful, please login' });
+  return res.json({ success: true, message: 'Registration successful' });
 });
 
-// OAuth Login
+// OAuth login
 app.get('/auth/forgerock', (req, res) => {
   const authUrl = `${FORGEROCK_AUTH_URL}?response_type=code&client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=openid%20profile%20email&prompt=login`;
   res.redirect(authUrl);
 });
 
-// OAuth Callback
+// OAuth callback
 app.get('/callback', async (req, res) => {
   const { code } = req.query;
+  console.log('📥 Received auth code:', code);
   try {
     const tokenRes = await axios.post(
       FORGEROCK_TOKEN_URL,
@@ -108,12 +110,18 @@ app.get('/callback', async (req, res) => {
     });
 
     const user = userInfoRes.data;
-    user.role = (user.email === 'admin@example.com' || user.preferred_username === 'adminuser') ? 'admin' : 'customer';
+    if (user.email === 'admin@example.com' || user.preferred_username === 'adminuser') {
+      user.role = 'admin';
+    } else {
+      user.role = 'customer';
+    }
+
     req.session.user = user;
+    console.log('✅ Logged in user from ForgeRock:', user);
 
     res.redirect('/dashboard');
   } catch (error) {
-    console.error('OAuth Error:', error.response?.data || error.message);
+    console.error('❌ OAuth Error:', error.response?.data || error.message);
     res.status(500).send('Authentication failed');
   }
 });
@@ -124,7 +132,7 @@ app.get('/dashboard', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
-// User Info
+// Me
 app.get('/me', (req, res) => {
   if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
   const { name, email, username, role } = req.session.user;
@@ -133,41 +141,58 @@ app.get('/me', (req, res) => {
 
 // Logout
 app.get('/logout', (req, res) => {
-  req.session.destroy(() => {
+  const redirectAfterLogout = 'https://plainid.onrender.com/?logged_out=true';
+  req.session.destroy(err => {
+    if (err) {
+      console.error('Logout error:', err);
+      return res.status(500).send('Logout failed');
+    }
     res.clearCookie('connect.sid');
-    res.redirect('https://plainid.onrender.com/?logged_out=true');
+    res.redirect(redirectAfterLogout);
   });
 });
 
-// 🆕 Asset API Routes for PlainID
+//
+// ✅ ASSET ROUTES FOR PLAINID
+//
+
+// Get ALL assets
+app.get('/api/assets/accounts', (req, res) => {
+  res.json(accounts);
+});
+app.get('/api/assets/branches', (req, res) => {
+  res.json(branches);
+});
+app.get('/api/assets/cards', (req, res) => {
+  res.json(creditCards);
+});
+app.get('/api/assets/loans', (req, res) => {
+  res.json(loans);
+});
+app.get('/api/assets/investments', (req, res) => {
+  res.json(investments);
+});
+
+// Get asset BY ID
 app.get('/api/assets/accounts/:id', (req, res) => {
-  const asset = accounts.find(a => a.id === req.params.id);
-  if (asset) return res.json(asset);
-  res.status(404).json({ error: 'Account not found' });
+  const item = accounts.find(a => a.id === req.params.id);
+  item ? res.json(item) : res.status(404).json({ error: 'Not found' });
 });
-
 app.get('/api/assets/branches/:id', (req, res) => {
-  const asset = branches.find(b => b.id === req.params.id);
-  if (asset) return res.json(asset);
-  res.status(404).json({ error: 'Branch not found' });
+  const item = branches.find(a => a.id === req.params.id);
+  item ? res.json(item) : res.status(404).json({ error: 'Not found' });
 });
-
 app.get('/api/assets/cards/:id', (req, res) => {
-  const asset = creditCards.find(c => c.id === req.params.id);
-  if (asset) return res.json(asset);
-  res.status(404).json({ error: 'Card not found' });
+  const item = creditCards.find(a => a.id === req.params.id);
+  item ? res.json(item) : res.status(404).json({ error: 'Not found' });
 });
-
 app.get('/api/assets/loans/:id', (req, res) => {
-  const asset = loans.find(l => l.id === req.params.id);
-  if (asset) return res.json(asset);
-  res.status(404).json({ error: 'Loan not found' });
+  const item = loans.find(a => a.id === req.params.id);
+  item ? res.json(item) : res.status(404).json({ error: 'Not found' });
 });
-
 app.get('/api/assets/investments/:id', (req, res) => {
-  const asset = investments.find(i => i.id === req.params.id);
-  if (asset) return res.json(asset);
-  res.status(404).json({ error: 'Investment not found' });
+  const item = investments.find(a => a.id === req.params.id);
+  item ? res.json(item) : res.status(404).json({ error: 'Not found' });
 });
 
 // Start server
