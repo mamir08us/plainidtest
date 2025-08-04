@@ -1,46 +1,56 @@
 const express = require('express');
 const router = express.Router();
 
-// Mock data representing the application's assets
+// Mock asset data
 const assets = {
   accounts: [
-    { id: 'acc001', name: 'Savings Account', type: 'savings' },
-    { id: 'acc002', name: 'Checking Account', type: 'checking' }
+    { id: 'A101', name: 'Savings Account', type: 'Savings', balance: 5000 },
+    { id: 'A102', name: 'Checking Account', type: 'Checking', balance: 1200 }
   ],
   branches: [
-    { id: 'br001', name: 'Main Branch', city: 'New York' },
-    { id: 'br002', name: 'Downtown Branch', city: 'Chicago' }
+    { id: 'B001', name: 'Main Branch', location: 'New York' },
+    { id: 'B002', name: 'West Branch', location: 'California' }
   ],
   creditCards: [
-    { id: 'cc001', name: 'Platinum Card', limit: 10000 },
-    { id: 'cc002', name: 'Gold Card', limit: 5000 }
+    { id: 'C101', type: 'Visa', limit: 10000, holder: 'testuser' },
+    { id: 'C102', type: 'MasterCard', limit: 15000, holder: 'adminuser' }
   ],
   loans: [
-    { id: 'ln001', name: 'Home Loan', amount: 200000 },
-    { id: 'ln002', name: 'Car Loan', amount: 25000 }
+    { id: 'L201', amount: 20000, status: 'approved' },
+    { id: 'L202', amount: 15000, status: 'pending' }
   ],
   payments: [
-    { id: 'pm001', from: 'acc001', to: 'vendor001', amount: 200 },
-    { id: 'pm002', from: 'acc002', to: 'vendor002', amount: 100 }
+    { id: 'P301', from: 'A101', to: 'Vendor A', amount: 200 },
+    { id: 'P302', from: 'A102', to: 'Vendor B', amount: 300 }
   ],
   investments: [
-    { id: 'inv001', name: 'Mutual Fund A', value: 5000 },
-    { id: 'inv002', name: 'Stock Portfolio', value: 12000 }
+    { id: 'I401', name: 'Mutual Fund A', amount: 8000 },
+    { id: 'I402', name: 'Stock XYZ', amount: 12000 }
   ]
 };
 
-// Generic route to list all assets
+// List all asset types
 router.get('/', (req, res) => {
   res.json({ message: 'Available asset types', types: Object.keys(assets) });
 });
 
-// Specific route for each asset type
+// Get all assets of a specific type
 router.get('/:type', (req, res) => {
   const { type } = req.params;
   if (!assets[type]) {
     return res.status(404).json({ error: 'Asset type not found' });
   }
   res.json(assets[type]);
+});
+
+// Get single asset by ID
+router.get('/:type/:id', (req, res) => {
+  const { type, id } = req.params;
+  if (!assets[type]) {
+    return res.status(404).json({ error: 'Asset type not found' });
+  }
+  const item = assets[type].find(a => a.id === id);
+  item ? res.json(item) : res.status(404).json({ error: 'Asset not found' });
 });
 
 module.exports = router;

@@ -2,6 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const session = require('express-session');
 const path = require('path');
+const assetRoutes = require('./assets-api'); // Import modular asset routes
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -12,39 +13,13 @@ const users = {
   'adminuser': { password: 'adminpass', role: 'admin' }
 };
 
-// In-memory asset data
-const accounts = [
-  { id: 'A101', name: 'Savings Account', type: 'Savings', balance: 5000 },
-  { id: 'A102', name: 'Checking Account', type: 'Checking', balance: 1200 }
-];
-
-const branches = [
-  { id: 'B001', name: 'Main Branch', location: 'New York' },
-  { id: 'B002', name: 'West Branch', location: 'California' }
-];
-
-const creditCards = [
-  { id: 'C101', type: 'Visa', limit: 10000, holder: 'testuser' },
-  { id: 'C102', type: 'MasterCard', limit: 15000, holder: 'adminuser' }
-];
-
-const loans = [
-  { id: 'L201', amount: 20000, status: 'approved' },
-  { id: 'L202', amount: 15000, status: 'pending' }
-];
-
-const investments = [
-  { id: 'I301', name: 'Mutual Fund A', amount: 8000 },
-  { id: 'I302', name: 'Stock XYZ', amount: 12000 }
-];
-
 // ForgeRock OAuth2 settings
 const CLIENT_ID = 'plainid_test_app';
 const CLIENT_SECRET = 'Admin@12345';
 const REDIRECT_URI = 'https://plainid.onrender.com/callback';
-const FORGEROCK_AUTH_URL = 'https://openam-acnemea20230705.forgeblocks.com:443/am/oauth2/realms/root/realms/bravo/authorize';
-const FORGEROCK_TOKEN_URL = 'https://openam-acnemea20230705.forgeblocks.com:443/am/oauth2/realms/root/realms/bravo/access_token';
-const FORGEROCK_USERINFO_URL = 'https://openam-acnemea20230705.forgeblocks.com:443/am/oauth2/realms/root/realms/bravo/userinfo';
+const FORGEROCK_AUTH_URL = 'https://openam-acnemea20230705.forgeblocks.com/am/oauth2/realms/root/realms/bravo/authorize';
+const FORGEROCK_TOKEN_URL = 'https://openam-acnemea20230705.forgeblocks.com/am/oauth2/realms/root/realms/bravo/access_token';
+const FORGEROCK_USERINFO_URL = 'https://openam-acnemea20230705.forgeblocks.com/am/oauth2/realms/root/realms/bravo/userinfo';
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -79,13 +54,13 @@ app.post('/register', (req, res) => {
   return res.json({ success: true, message: 'Registration successful' });
 });
 
-// OAuth login
+// ForgeRock OAuth login
 app.get('/auth/forgerock', (req, res) => {
   const authUrl = `${FORGEROCK_AUTH_URL}?response_type=code&client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=openid%20profile%20email&prompt=login`;
   res.redirect(authUrl);
 });
 
-// OAuth callback
+// ForgeRock OAuth callback
 app.get('/callback', async (req, res) => {
   const { code } = req.query;
   console.log('📥 Received auth code:', code);
@@ -110,15 +85,10 @@ app.get('/callback', async (req, res) => {
     });
 
     const user = userInfoRes.data;
-    if (user.email === 'admin@example.com' || user.preferred_username === 'adminuser') {
-      user.role = 'admin';
-    } else {
-      user.role = 'customer';
-    }
-
+    user.role = (user.email === 'admin@example.com' || user.preferred_username === 'adminuser') ? 'admin' : 'customer';
     req.session.user = user;
-    console.log('✅ Logged in user from ForgeRock:', user);
 
+    console.log('✅ Logged in user from ForgeRock:', user);
     res.redirect('/dashboard');
   } catch (error) {
     console.error('❌ OAuth Error:', error.response?.data || error.message);
@@ -132,7 +102,7 @@ app.get('/dashboard', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
-// Me
+// User info
 app.get('/me', (req, res) => {
   if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
   const { name, email, username, role } = req.session.user;
@@ -152,48 +122,8 @@ app.get('/logout', (req, res) => {
   });
 });
 
-//
-// ✅ ASSET ROUTES FOR PLAINID
-//
-
-// Get ALL assets
-app.get('/api/assets/accounts', (req, res) => {
-  res.json(accounts);
-});
-app.get('/api/assets/branches', (req, res) => {
-  res.json(branches);
-});
-app.get('/api/assets/cards', (req, res) => {
-  res.json(creditCards);
-});
-app.get('/api/assets/loans', (req, res) => {
-  res.json(loans);
-});
-app.get('/api/assets/investments', (req, res) => {
-  res.json(investments);
-});
-
-// Get asset BY ID
-app.get('/api/assets/accounts/:id', (req, res) => {
-  const item = accounts.find(a => a.id === req.params.id);
-  item ? res.json(item) : res.status(404).json({ error: 'Not found' });
-});
-app.get('/api/assets/branches/:id', (req, res) => {
-  const item = branches.find(a => a.id === req.params.id);
-  item ? res.json(item) : res.status(404).json({ error: 'Not found' });
-});
-app.get('/api/assets/cards/:id', (req, res) => {
-  const item = creditCards.find(a => a.id === req.params.id);
-  item ? res.json(item) : res.status(404).json({ error: 'Not found' });
-});
-app.get('/api/assets/loans/:id', (req, res) => {
-  const item = loans.find(a => a.id === req.params.id);
-  item ? res.json(item) : res.status(404).json({ error: 'Not found' });
-});
-app.get('/api/assets/investments/:id', (req, res) => {
-  const item = investments.find(a => a.id === req.params.id);
-  item ? res.json(item) : res.status(404).json({ error: 'Not found' });
-});
+// ✅ Mount modular asset APIs (accounts, branches, payments, etc.)
+app.use('/api/assets', assetRoutes);
 
 // Start server
 app.listen(port, () => {
