@@ -3,10 +3,16 @@ const axios = require('axios');
 const session = require('express-session');
 const path = require('path');
 const { Pool } = require('pg');
+const { v4: uuidv4 } = require('uuid'); // Add this line
 require('dotenv').config();
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+// Helper function to generate IDs like 'Axxxxxxxxx' (length 10)
+function generateId(prefix = '', length = 10) {
+  return prefix + uuidv4().replace(/-/g, '').substring(0, length - prefix.length);
+}
 
 // PostgreSQL pool setup
 const pool = new Pool({
@@ -127,28 +133,44 @@ app.post('/pip/users', async (req, res) => {
   }
 });
 
-// Similarly for branches
+// Branches
 app.get('/pip/branches', async (req, res) => {
   const result = await pool.query('SELECT * FROM branches');
   res.json(result.rows);
 });
 
 app.post('/pip/branches', async (req, res) => {
-  const { name, location } = req.body;
-  await pool.query('INSERT INTO branches (name, location) VALUES ($1, $2)', [name, location]);
-  res.json({ message: 'Branch created' });
+  const { name, location, id } = req.body;
+  // generate id if not provided
+  const branchId = id || generateId('B');
+  try {
+    await pool.query('INSERT INTO branches (id, name, location) VALUES ($1, $2, $3)', [branchId, name, location]);
+    res.json({ message: 'Branch created' });
+  } catch (err) {
+    console.error('Insert branch error:', err);
+    res.status(500).json({ error: 'Failed to add branch' });
+  }
 });
 
-// Similarly for accounts
+// Accounts
 app.get('/pip/accounts', async (req, res) => {
   const result = await pool.query('SELECT * FROM accounts');
   res.json(result.rows);
 });
 
 app.post('/pip/accounts', async (req, res) => {
-  const { user_id, type, balance } = req.body;
-  await pool.query('INSERT INTO accounts (user_id, type, balance) VALUES ($1, $2, $3)', [user_id, type, balance]);
-  res.json({ message: 'Account created' });
+  const { user_id, type, balance, name } = req.body;
+  const accountId = generateId('A');
+  try {
+    await pool.query(
+      'INSERT INTO accounts (id, user_id, type, balance, name) VALUES ($1, $2, $3, $4, $5)',
+      [accountId, user_id, type, balance, name || null]
+    );
+    res.json({ message: 'Account created' });
+  } catch (err) {
+    console.error('Insert account error:', err);
+    res.status(500).json({ error: 'Failed to add account' });
+  }
 });
 
 // Other routes
