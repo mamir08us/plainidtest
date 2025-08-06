@@ -108,7 +108,7 @@ app.get('/callback', async (req, res) => {
 });
 
 // CRUD APIs
-app.get('/api/users', async (req, res) => {
+app.get('/pip/users', async (req, res) => {
   try {
     const result = await pool.query('SELECT id, username, role FROM users');
     res.json(result.rows);
@@ -117,7 +117,7 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
-app.post('/api/users', async (req, res) => {
+app.post('/pip/users', async (req, res) => {
   const { username, password, role } = req.body;
   try {
     await pool.query('INSERT INTO users (username, password, role) VALUES ($1, $2, $3)', [username, password, role]);
@@ -128,24 +128,24 @@ app.post('/api/users', async (req, res) => {
 });
 
 // Similarly for branches
-app.get('/api/branches', async (req, res) => {
+app.get('/pip/branches', async (req, res) => {
   const result = await pool.query('SELECT * FROM branches');
   res.json(result.rows);
 });
 
-app.post('/api/branches', async (req, res) => {
+app.post('/pip/branches', async (req, res) => {
   const { name, location } = req.body;
   await pool.query('INSERT INTO branches (name, location) VALUES ($1, $2)', [name, location]);
   res.json({ message: 'Branch created' });
 });
 
 // Similarly for accounts
-app.get('/api/accounts', async (req, res) => {
+app.get('/pip/accounts', async (req, res) => {
   const result = await pool.query('SELECT * FROM accounts');
   res.json(result.rows);
 });
 
-app.post('/api/accounts', async (req, res) => {
+app.post('/pip/accounts', async (req, res) => {
   const { user_id, type, balance } = req.body;
   await pool.query('INSERT INTO accounts (user_id, type, balance) VALUES ($1, $2, $3)', [user_id, type, balance]);
   res.json({ message: 'Account created' });

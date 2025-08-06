@@ -4,7 +4,7 @@
   <title>Accounts</title>
   <script>
     async function fetchAccounts() {
-      const res = await fetch('/api/assets/accounts');
+      const res = await fetch('/pip/assets/accounts');
       const data = await res.json();
       document.getElementById('account-list').innerHTML = data.map(acc => `
         <li>
@@ -17,7 +17,7 @@
     async function createAccount() {
       const user_id = document.getElementById('user_id').value;
       const balance = document.getElementById('balance').value;
-      await fetch('/api/assets/accounts', {
+      await fetch('/pip/assets/accounts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id, balance })
@@ -26,7 +26,7 @@
     }
 
     async function deleteAccount(id) {
-      await fetch(`/api/assets/accounts/${id}`, { method: 'DELETE' });
+      await fetch(`/pip/assets/accounts/${id}`, { method: 'DELETE' });
       fetchAccounts();
     }
 
