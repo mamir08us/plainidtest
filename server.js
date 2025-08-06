@@ -2,25 +2,22 @@ const express = require('express');
 const axios = require('axios');
 const session = require('express-session');
 const path = require('path');
-const assetRoutes = require('./assets-api'); // Import modular asset routes
+const { Pool } = require('pg');
+require('dotenv').config();
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Static user store
-const users = {
-  'testuser': { password: 'password123', role: 'customer' },
-  'adminuser': { password: 'adminpass', role: 'admin' }
-};
+// PostgreSQL pool setup
+const pool = new Pool({
+  host: 'ec2-3-145-200-54.us-east-2.compute.amazonaws.com',
+  user: 'postgres',
+  password: 'teiidpass',
+  database: 'postgres',
+  port: 5432
+});
 
-// ForgeRock OAuth2 settings
-const CLIENT_ID = 'plainid_test_app';
-const CLIENT_SECRET = 'Admin@12345';
-const REDIRECT_URI = 'https://plainid.onrender.com/callback';
-const FORGEROCK_AUTH_URL = 'https://openam-acnemea20230705.forgeblocks.com/am/oauth2/realms/root/realms/bravo/authorize';
-const FORGEROCK_TOKEN_URL = 'https://openam-acnemea20230705.forgeblocks.com/am/oauth2/realms/root/realms/bravo/access_token';
-const FORGEROCK_USERINFO_URL = 'https://openam-acnemea20230705.forgeblocks.com/am/oauth2/realms/root/realms/bravo/userinfo';
-
+// Middleware
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(session({
@@ -29,41 +26,56 @@ app.use(session({
   saveUninitialized: true
 }));
 
-// Local login
-app.post('/login', (req, res) => {
+// OAuth settings
+const CLIENT_ID = 'plainid_test_app';
+const CLIENT_SECRET = 'Admin@12345';
+const REDIRECT_URI = 'https://plainid.onrender.com/callback';
+const FORGEROCK_AUTH_URL = 'https://openam-acnemea20230705.forgeblocks.com/am/oauth2/realms/root/realms/bravo/authorize';
+const FORGEROCK_TOKEN_URL = 'https://openam-acnemea20230705.forgeblocks.com/am/oauth2/realms/root/realms/bravo/access_token';
+const FORGEROCK_USERINFO_URL = 'https://openam-acnemea20230705.forgeblocks.com/am/oauth2/realms/root/realms/bravo/userinfo';
+
+// Local login from PostgreSQL
+app.post('/login', async (req, res) => {
   const { username, password } = req.body;
-  const user = users[username];
-  if (user && user.password === password) {
-    req.session.user = { username, role: user.role };
-    req.session.accessToken = 'static';
-    return res.json({ success: true, role: user.role, message: 'Login successful' });
+  try {
+    const result = await pool.query('SELECT * FROM users WHERE username = $1 AND password = $2', [username, password]);
+    if (result.rows.length > 0) {
+      const user = result.rows[0];
+      req.session.user = { username: user.username, role: user.role };
+      req.session.accessToken = 'static';
+      return res.json({ success: true, role: user.role, message: 'Login successful' });
+    }
+    res.status(401).json({ success: false, message: 'Invalid username or password' });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ success: false, message: 'Login failed' });
   }
-  res.status(401).json({ success: false, message: 'Invalid username or password' });
 });
 
-// Register
-app.post('/register', (req, res) => {
+// Register user into DB
+app.post('/register', async (req, res) => {
   const { username, password } = req.body;
-  if (!username || !password) {
-    return res.status(400).json({ success: false, message: 'Username and password required' });
+  try {
+    const existing = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ success: false, message: 'Username already exists' });
+    }
+    await pool.query('INSERT INTO users (username, password, role) VALUES ($1, $2, $3)', [username, password, 'customer']);
+    res.json({ success: true, message: 'Registration successful' });
+  } catch (err) {
+    console.error('Register error:', err);
+    res.status(500).json({ success: false, message: 'Registration failed' });
   }
-  if (users[username]) {
-    return res.status(400).json({ success: false, message: 'Username already exists' });
-  }
-  users[username] = { password, role: 'customer' };
-  return res.json({ success: true, message: 'Registration successful' });
 });
 
-// ForgeRock OAuth login
+// OAuth login and callback
 app.get('/auth/forgerock', (req, res) => {
   const authUrl = `${FORGEROCK_AUTH_URL}?response_type=code&client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=openid%20profile%20email&prompt=login`;
   res.redirect(authUrl);
 });
 
-// ForgeRock OAuth callback
 app.get('/callback', async (req, res) => {
   const { code } = req.query;
-  console.log('📥 Received auth code:', code);
   try {
     const tokenRes = await axios.post(
       FORGEROCK_TOKEN_URL,
@@ -88,42 +100,75 @@ app.get('/callback', async (req, res) => {
     user.role = (user.email === 'admin@example.com' || user.preferred_username === 'adminuser') ? 'admin' : 'customer';
     req.session.user = user;
 
-    console.log('✅ Logged in user from ForgeRock:', user);
     res.redirect('/dashboard');
   } catch (error) {
-    console.error('❌ OAuth Error:', error.response?.data || error.message);
+    console.error('OAuth error:', error.response?.data || error.message);
     res.status(500).send('Authentication failed');
   }
 });
 
-// Dashboard
+// CRUD APIs
+app.get('/api/users', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id, username, role FROM users');
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+app.post('/api/users', async (req, res) => {
+  const { username, password, role } = req.body;
+  try {
+    await pool.query('INSERT INTO users (username, password, role) VALUES ($1, $2, $3)', [username, password, role]);
+    res.json({ message: 'User added' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to add user' });
+  }
+});
+
+// Similarly for branches
+app.get('/api/branches', async (req, res) => {
+  const result = await pool.query('SELECT * FROM branches');
+  res.json(result.rows);
+});
+
+app.post('/api/branches', async (req, res) => {
+  const { name, location } = req.body;
+  await pool.query('INSERT INTO branches (name, location) VALUES ($1, $2)', [name, location]);
+  res.json({ message: 'Branch created' });
+});
+
+// Similarly for accounts
+app.get('/api/accounts', async (req, res) => {
+  const result = await pool.query('SELECT * FROM accounts');
+  res.json(result.rows);
+});
+
+app.post('/api/accounts', async (req, res) => {
+  const { user_id, type, balance } = req.body;
+  await pool.query('INSERT INTO accounts (user_id, type, balance) VALUES ($1, $2, $3)', [user_id, type, balance]);
+  res.json({ message: 'Account created' });
+});
+
+// Other routes
 app.get('/dashboard', (req, res) => {
   if (!req.session.accessToken) return res.redirect('/');
   res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
-// User info
 app.get('/me', (req, res) => {
   if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
   const { name, email, username, role } = req.session.user;
   res.json({ name, email, username, role });
 });
 
-// Logout
 app.get('/logout', (req, res) => {
-  const redirectAfterLogout = 'https://plainid.onrender.com/?logged_out=true';
   req.session.destroy(err => {
-    if (err) {
-      console.error('Logout error:', err);
-      return res.status(500).send('Logout failed');
-    }
     res.clearCookie('connect.sid');
-    res.redirect(redirectAfterLogout);
+    res.redirect('https://plainid.onrender.com/?logged_out=true');
   });
 });
-
-// ✅ Mount modular asset APIs (accounts, branches, payments, etc.)
-app.use('/api/assets', assetRoutes);
 
 // Start server
 app.listen(port, () => {

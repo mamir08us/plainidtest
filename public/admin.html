@@ -1,2 +1,47 @@
-<h1>Admin Panel</h1>
-<p>This section is restricted to administrators only.</p>
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Users</title>
+  <script>
+    async function fetchUsers() {
+      const res = await fetch('/api/assets/users');
+      const data = await res.json();
+      document.getElementById('user-list').innerHTML = data.map(user => `
+        <li>
+          ID: ${user.id}, Username: ${user.username}, Role: ${user.role}
+          <button onclick="deleteUser(${user.id})">Delete</button>
+        </li>
+      `).join('');
+    }
+
+    async function createUser() {
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      const role = document.getElementById('role').value;
+      await fetch('/api/assets/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, role })
+      });
+      fetchUsers();
+    }
+
+    async function deleteUser(id) {
+      await fetch(`/api/assets/users/${id}`, { method: 'DELETE' });
+      fetchUsers();
+    }
+
+    window.onload = fetchUsers;
+  </script>
+</head>
+<body>
+  <h1>Users</h1>
+  <form onsubmit="event.preventDefault(); createUser();">
+    <input id="username" placeholder="Username" required />
+    <input id="password" placeholder="Password" required />
+    <input id="role" placeholder="Role (admin/customer)" required />
+    <button type="submit">Add User</button>
+  </form>
+  <ul id="user-list"></ul>
+</body>
+</html>
