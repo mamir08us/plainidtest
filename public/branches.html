@@ -1,45 +1,30 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Branches</title>
-  <script>
-    async function fetchBranches() {
-      const res = await fetch('/pip/branches');
-      const data = await res.json();
-      document.getElementById('branch-list').innerHTML = data.map(branch => `
-        <li>
-          ID: ${branch.id}, Name: ${branch.name}, Location: ${branch.location}
-          <button onclick="deleteBranch(${branch.id})">Delete</button>
-        </li>
-      `).join('');
-    }
+<script>
+  async function fetchBranches() {
+    const res = await fetch('/pip/branches');
+    const data = await res.json();
+    document.getElementById('branch-list').innerHTML = data.map(branch => 
+      `<li>
+        ID: ${branch.id}, Name: ${branch.name}, Location: ${branch.location}
+        <button onclick="deleteBranch(${branch.id})">Delete</button>
+      </li>`
+    ).join('');
+  }
 
-    async function createBranch() {
-      const name = document.getElementById('name').value;
-      const location = document.getElementById('location').value;
-      await fetch('/pip/branches', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, location })
-      });
-      fetchBranches();
-    }
+  async function createBranch() {
+    const name = document.getElementById('name').value;
+    const location = document.getElementById('location').value;
+    await fetch('/pip/branches', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, location })
+    });
+    fetchBranches();
+  }
 
-    async function deleteBranch(id) {
-      await fetch(`/pip/branches/${id}`, { method: 'DELETE' });
-      fetchBranches();
-    }
+  async function deleteBranch(id) {
+    await fetch(`/pip/branches/${id}`, { method: 'DELETE' });
+    fetchBranches();
+  }
 
-    window.onload = fetchBranches;
-  </script>
-</head>
-<body>
-  <h1>Branches</h1>
-  <form onsubmit="event.preventDefault(); createBranch();">
-    <input id="name" placeholder="Branch Name" required />
-    <input id="location" placeholder="Location" required />
-    <button type="submit">Add Branch</button>
-  </form>
-  <ul id="branch-list"></ul>
-</body>
-</html>
+  window.onload = fetchBranches;
+</script>
