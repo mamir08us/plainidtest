@@ -4,7 +4,7 @@
   <title>Users</title>
   <script>
     async function fetchUsers() {
-      const res = await fetch('/pip/assets/users');
+      const res = await fetch('/pip/users');
       const data = await res.json();
       document.getElementById('user-list').innerHTML = data.map(user => `
         <li>
@@ -18,7 +18,7 @@
       const username = document.getElementById('username').value;
       const password = document.getElementById('password').value;
       const role = document.getElementById('role').value;
-      await fetch('/pip/assets/users', {
+      await fetch('/pip/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password, role })
@@ -27,7 +27,7 @@
     }
 
     async function deleteUser(id) {
-      await fetch(`/pip/assets/users/${id}`, { method: 'DELETE' });
+      await fetch(`/pip/users/${id}`, { method: 'DELETE' });
       fetchUsers();
     }
 

@@ -4,7 +4,7 @@
   <title>Branches</title>
   <script>
     async function fetchBranches() {
-      const res = await fetch('/pip/assets/branches');
+      const res = await fetch('/pip/branches');
       const data = await res.json();
       document.getElementById('branch-list').innerHTML = data.map(branch => `
         <li>
@@ -17,7 +17,7 @@
     async function createBranch() {
       const name = document.getElementById('name').value;
       const location = document.getElementById('location').value;
-      await fetch('/pip/assets/branches', {
+      await fetch('/pip/branches', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, location })
@@ -26,7 +26,7 @@
     }
 
     async function deleteBranch(id) {
-      await fetch(`/pip/assets/branches/${id}`, { method: 'DELETE' });
+      await fetch(`/pip/branches/${id}`, { method: 'DELETE' });
       fetchBranches();
     }
 
