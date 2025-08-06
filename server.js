@@ -17,9 +17,9 @@ function generateId(prefix = '', length = 10) {
 // PostgreSQL pool setup
 const pool = new Pool({
   host: 'ec2-3-145-200-54.us-east-2.compute.amazonaws.com',
-  user: 'postgres',
+  user: 'teiid',
   password: 'teiidpass',
-  database: 'postgres',
+  database: 'bankdb',
   port: 5432
 });
 
