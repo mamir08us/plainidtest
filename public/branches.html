@@ -3,30 +3,45 @@
 <head>
   <title>Branches</title>
   <script>
+    const apiBase = 'http://ec2-3-145-200-54.us-east-2.compute.amazonaws.com:3001/pip/branches';
+
     async function fetchBranches() {
-      const res = await fetch('/pip/branches');
+      const res = await fetch(apiBase);
       const data = await res.json();
-      document.getElementById('branch-list').innerHTML = data.map(branch => `
+      const list = data.map(branch => `
         <li>
-          ID: ${branch.id}, Name: ${branch.name}, Location: ${branch.location}
+          <strong>ID:</strong> ${branch.id},
+          <strong>Name:</strong> <input value="${branch.name}" onchange="updateField(${branch.id}, 'name', this.value)" />
+          <strong>Location:</strong> <input value="${branch.location}" onchange="updateField(${branch.id}, 'location', this.value)" />
           <button onclick="deleteBranch(${branch.id})">Delete</button>
         </li>
       `).join('');
+      document.getElementById('branch-list').innerHTML = list;
     }
 
     async function createBranch() {
       const name = document.getElementById('name').value;
       const location = document.getElementById('location').value;
-      await fetch('/pip/branches', {
+      await fetch(apiBase, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, location })
       });
+      document.getElementById('name').value = '';
+      document.getElementById('location').value = '';
       fetchBranches();
     }
 
+    async function updateField(id, field, value) {
+      await fetch(`${apiBase}/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: value })
+      });
+    }
+
     async function deleteBranch(id) {
-      await fetch(`/pip/branches/${id}`, { method: 'DELETE' });
+      await fetch(`${apiBase}/${id}`, { method: 'DELETE' });
       fetchBranches();
     }
 

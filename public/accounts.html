@@ -3,31 +3,48 @@
 <head>
   <title>Accounts</title>
   <script>
+    const API_BASE = 'http://ec2-3-145-200-54.us-east-2.compute.amazonaws.com:3001/pip';
+
     async function fetchAccounts() {
-      const res = await fetch('/pip/accounts');
+      const res = await fetch(`${API_BASE}/accounts`);
       const data = await res.json();
       document.getElementById('account-list').innerHTML = data.map(acc => `
         <li>
           ID: ${acc.id}, UserID: ${acc.user_id}, Balance: ${acc.balance}
+          <button onclick="editAccount(${acc.id}, '${acc.user_id}', ${acc.balance})">Edit</button>
           <button onclick="deleteAccount(${acc.id})">Delete</button>
         </li>
       `).join('');
     }
 
-    async function createAccount() {
+    async function createOrUpdateAccount() {
+      const id = document.getElementById('account_id').value;
       const user_id = document.getElementById('user_id').value;
       const balance = document.getElementById('balance').value;
-      await fetch('/pip/accounts', {
-        method: 'POST',
+
+      const method = id ? 'PUT' : 'POST';
+      const url = id ? `${API_BASE}/accounts/${id}` : `${API_BASE}/accounts`;
+
+      await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id, balance })
       });
+
+      document.getElementById('account-form').reset();
+      document.getElementById('account_id').value = '';
       fetchAccounts();
     }
 
     async function deleteAccount(id) {
-      await fetch(`/pip/accounts/${id}`, { method: 'DELETE' });
+      await fetch(`${API_BASE}/accounts/${id}`, { method: 'DELETE' });
       fetchAccounts();
+    }
+
+    function editAccount(id, user_id, balance) {
+      document.getElementById('account_id').value = id;
+      document.getElementById('user_id').value = user_id;
+      document.getElementById('balance').value = balance;
     }
 
     window.onload = fetchAccounts;
@@ -35,10 +52,11 @@
 </head>
 <body>
   <h1>Accounts</h1>
-  <form onsubmit="event.preventDefault(); createAccount();">
+  <form id="account-form" onsubmit="event.preventDefault(); createOrUpdateAccount();">
+    <input type="hidden" id="account_id" />
     <input id="user_id" placeholder="User ID" required />
     <input id="balance" placeholder="Balance" required />
-    <button type="submit">Add Account</button>
+    <button type="submit">Save Account</button>
   </form>
   <ul id="account-list"></ul>
 </body>

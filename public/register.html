@@ -1,106 +1,64 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Register</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      background-color: #f4f4f4;
+  <title>User Registration</title>
+  <script>
+    const apiBase = 'http://ec2-3-145-200-54.us-east-2.compute.amazonaws.com:3001/pip/users';
+
+    async function fetchUsers() {
+      const res = await fetch(apiBase);
+      const data = await res.json();
+      const list = data.map(user => `
+        <li>
+          <strong>ID:</strong> ${user.id},
+          <strong>Name:</strong> <input value="${user.name}" onchange="updateField(${user.id}, 'name', this.value)" />
+          <strong>Email:</strong> <input value="${user.email}" onchange="updateField(${user.id}, 'email', this.value)" />
+          <strong>Role:</strong> <input value="${user.role}" onchange="updateField(${user.id}, 'role', this.value)" />
+          <button onclick="deleteUser(${user.id})">Delete</button>
+        </li>
+      `).join('');
+      document.getElementById('user-list').innerHTML = list;
     }
-    .register-container {
-      background-color: #fff;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-      width: 300px;
+
+    async function createUser() {
+      const name = document.getElementById('name').value;
+      const email = document.getElementById('email').value;
+      const role = document.getElementById('role').value;
+      await fetch(apiBase, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, role })
+      });
+      document.getElementById('name').value = '';
+      document.getElementById('email').value = '';
+      document.getElementById('role').value = '';
+      fetchUsers();
     }
-    input[type="text"], input[type="password"] {
-      width: 100%;
-      padding: 10px;
-      margin: 8px 0;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      box-sizing: border-box;
+
+    async function updateField(id, field, value) {
+      await fetch(`${apiBase}/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: value })
+      });
     }
-    button {
-      background-color: #4CAF50;
-      color: white;
-      padding: 10px 15px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      width: 100%;
+
+    async function deleteUser(id) {
+      await fetch(`${apiBase}/${id}`, { method: 'DELETE' });
+      fetchUsers();
     }
-    button:hover {
-      opacity: 0.9;
-    }
-    .message {
-      text-align: center;
-      margin-top: 10px;
-    }
-    .message.success {
-      color: green;
-    }
-    .message.error {
-      color: red;
-    }
-    a {
-      display: block;
-      margin-top: 12px;
-      text-align: center;
-      color: #555;
-      text-decoration: none;
-    }
-  </style>
+
+    window.onload = fetchUsers;
+  </script>
 </head>
 <body>
-  <div class="register-container">
-    <h2>Register</h2>
-    <form id="registerForm">
-      <label for="username">Username:</label>
-      <input type="text" id="username" name="username" required />
-      <label for="password">Password:</label>
-      <input type="password" id="password" name="password" required />
-      <button type="submit">Register</button>
-      <p id="message" class="message"></p>
-    </form>
-    <a href="/">Back to Login</a>
-  </div>
-
-  <script>
-    document.getElementById('registerForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      const username = document.getElementById('username').value.trim();
-      const password = document.getElementById('password').value.trim();
-      const messageElement = document.getElementById('message');
-
-      try {
-        const res = await fetch('/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password })
-        });
-        const data = await res.json();
-
-        if (data.success) {
-          messageElement.textContent = data.message;
-          messageElement.className = 'message success';
-        } else {
-          messageElement.textContent = data.message;
-          messageElement.className = 'message error';
-        }
-      } catch (err) {
-        messageElement.textContent = 'Error: ' + err.message;
-        messageElement.className = 'message error';
-      }
-    });
-  </script>
+  <h1>Register New User</h1>
+  <form onsubmit="event.preventDefault(); createUser();">
+    <input id="name" placeholder="Full Name" required />
+    <input id="email" placeholder="Email" required />
+    <input id="role" placeholder="Role (admin/user)" required />
+    <button type="submit">Register</button>
+  </form>
+  <ul id="user-list"></ul>
 </body>
 </html>

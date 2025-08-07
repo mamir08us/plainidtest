@@ -1,33 +1,47 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Users</title>
+  <title>Admin - Manage Users</title>
   <script>
+    const apiBase = 'http://ec2-3-145-200-54.us-east-2.compute.amazonaws.com:3001/pip/users';
+
     async function fetchUsers() {
-      const res = await fetch('/pip/users');
+      const res = await fetch(apiBase);
       const data = await res.json();
-      document.getElementById('user-list').innerHTML = data.map(user => `
+      const list = data.map(user => `
         <li>
-          ID: ${user.id}, Username: ${user.username}, Role: ${user.role}
+          <strong>ID:</strong> ${user.id},
+          <strong>Username:</strong> <input value="${user.username}" onchange="updateField(${user.id}, 'username', this.value)" />
+          <strong>Role:</strong> <input value="${user.role}" onchange="updateField(${user.id}, 'role', this.value)" />
           <button onclick="deleteUser(${user.id})">Delete</button>
         </li>
       `).join('');
+      document.getElementById('user-list').innerHTML = list;
     }
 
     async function createUser() {
       const username = document.getElementById('username').value;
-      const password = document.getElementById('password').value;
       const role = document.getElementById('role').value;
-      await fetch('/pip/users', {
+      await fetch(apiBase, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password, role })
+        body: JSON.stringify({ username, role })
       });
+      document.getElementById('username').value = '';
+      document.getElementById('role').value = '';
       fetchUsers();
     }
 
+    async function updateField(id, field, value) {
+      await fetch(`${apiBase}/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: value })
+      });
+    }
+
     async function deleteUser(id) {
-      await fetch(`/pip/users/${id}`, { method: 'DELETE' });
+      await fetch(`${apiBase}/${id}`, { method: 'DELETE' });
       fetchUsers();
     }
 
@@ -35,11 +49,10 @@
   </script>
 </head>
 <body>
-  <h1>Users</h1>
+  <h1>Admin - Manage Users</h1>
   <form onsubmit="event.preventDefault(); createUser();">
     <input id="username" placeholder="Username" required />
-    <input id="password" placeholder="Password" required />
-    <input id="role" placeholder="Role (admin/customer)" required />
+    <input id="role" placeholder="Role" required />
     <button type="submit">Add User</button>
   </form>
   <ul id="user-list"></ul>

@@ -1,2 +1,64 @@
-<h1>Accounts</h1>
-<p>View payment information here.</p>
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Payments</title>
+  <script>
+    const apiBase = 'http://ec2-3-145-200-54.us-east-2.compute.amazonaws.com:3001/pip/payments';
+
+    async function fetchPayments() {
+      const res = await fetch(apiBase);
+      const data = await res.json();
+      const list = data.map(payment => `
+        <li>
+          <strong>ID:</strong> ${payment.id},
+          <strong>Amount:</strong> <input value="${payment.amount}" onchange="updateField(${payment.id}, 'amount', this.value)" />
+          <strong>Account:</strong> <input value="${payment.account_id}" onchange="updateField(${payment.id}, 'account_id', this.value)" />
+          <strong>Date:</strong> <input value="${payment.date}" onchange="updateField(${payment.id}, 'date', this.value)" />
+          <button onclick="deletePayment(${payment.id})">Delete</button>
+        </li>
+      `).join('');
+      document.getElementById('payment-list').innerHTML = list;
+    }
+
+    async function createPayment() {
+      const amount = document.getElementById('amount').value;
+      const account_id = document.getElementById('account_id').value;
+      const date = document.getElementById('date').value;
+      await fetch(apiBase, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount, account_id, date })
+      });
+      document.getElementById('amount').value = '';
+      document.getElementById('account_id').value = '';
+      document.getElementById('date').value = '';
+      fetchPayments();
+    }
+
+    async function updateField(id, field, value) {
+      await fetch(`${apiBase}/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: value })
+      });
+    }
+
+    async function deletePayment(id) {
+      await fetch(`${apiBase}/${id}`, { method: 'DELETE' });
+      fetchPayments();
+    }
+
+    window.onload = fetchPayments;
+  </script>
+</head>
+<body>
+  <h1>Payments</h1>
+  <form onsubmit="event.preventDefault(); createPayment();">
+    <input id="amount" placeholder="Amount" required />
+    <input id="account_id" placeholder="Account ID" required />
+    <input id="date" placeholder="YYYY-MM-DD" required />
+    <button type="submit">Add Payment</button>
+  </form>
+  <ul id="payment-list"></ul>
+</body>
+</html>

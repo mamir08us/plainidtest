@@ -1,2 +1,64 @@
-<h1>Accounts</h1>
-<p>View loan account information here.</p>
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Loans</title>
+  <script>
+    const apiBase = 'http://ec2-3-145-200-54.us-east-2.compute.amazonaws.com:3001/pip/loans';
+
+    async function fetchLoans() {
+      const res = await fetch(apiBase);
+      const data = await res.json();
+      const list = data.map(loan => `
+        <li>
+          <strong>ID:</strong> ${loan.id},
+          <strong>Amount:</strong> <input value="${loan.amount}" onchange="updateField(${loan.id}, 'amount', this.value)" />
+          <strong>Type:</strong> <input value="${loan.type}" onchange="updateField(${loan.id}, 'type', this.value)" />
+          <strong>Status:</strong> <input value="${loan.status}" onchange="updateField(${loan.id}, 'status', this.value)" />
+          <button onclick="deleteLoan(${loan.id})">Delete</button>
+        </li>
+      `).join('');
+      document.getElementById('loan-list').innerHTML = list;
+    }
+
+    async function createLoan() {
+      const amount = document.getElementById('amount').value;
+      const type = document.getElementById('type').value;
+      const status = document.getElementById('status').value;
+      await fetch(apiBase, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount, type, status })
+      });
+      document.getElementById('amount').value = '';
+      document.getElementById('type').value = '';
+      document.getElementById('status').value = '';
+      fetchLoans();
+    }
+
+    async function updateField(id, field, value) {
+      await fetch(`${apiBase}/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: value })
+      });
+    }
+
+    async function deleteLoan(id) {
+      await fetch(`${apiBase}/${id}`, { method: 'DELETE' });
+      fetchLoans();
+    }
+
+    window.onload = fetchLoans;
+  </script>
+</head>
+<body>
+  <h1>Loans</h1>
+  <form onsubmit="event.preventDefault(); createLoan();">
+    <input id="amount" placeholder="Amount" required />
+    <input id="type" placeholder="Type" required />
+    <input id="status" placeholder="Status" required />
+    <button type="submit">Add Loan</button>
+  </form>
+  <ul id="loan-list"></ul>
+</body>
+</html>

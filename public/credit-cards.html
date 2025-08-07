@@ -1,2 +1,74 @@
-<h1>Accounts</h1>
-<p>View credit card information here.</p>
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Credit Cards</title>
+  <script>
+    const apiBase = 'http://ec2-3-145-200-54.us-east-2.compute.amazonaws.com:3001/pip/cards';
+
+    async function fetchCards() {
+      const res = await fetch(apiBase);
+      const data = await res.json();
+      const list = data.map(card => `
+        <li>
+          <strong>ID:</strong> ${card.id},
+          <strong>Card Number:</strong> 
+          <input value="${card.card_number}" onchange="updateField(${card.id}, 'card_number', this.value)" />
+          <strong>Limit:</strong> 
+          <input value="${card.limit}" onchange="updateField(${card.id}, 'limit', this.value)" />
+          <strong>User ID:</strong> 
+          <input value="${card.user_id}" onchange="updateField(${card.id}, 'user_id', this.value)" />
+          <button onclick="deleteCard(${card.id})">Delete</button>
+        </li>
+      `).join('');
+      document.getElementById('card-list').innerHTML = list;
+    }
+
+    async function createCard() {
+      const card_number = document.getElementById('card_number').value;
+      const limit = document.getElementById('limit').value;
+      const user_id = document.getElementById('user_id').value;
+
+      await fetch(apiBase, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ card_number, limit, user_id })
+      });
+
+      document.getElementById('card_number').value = '';
+      document.getElementById('limit').value = '';
+      document.getElementById('user_id').value = '';
+
+      fetchCards();
+    }
+
+    async function updateField(id, field, value) {
+      await fetch(`${apiBase}/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: value })
+      });
+    }
+
+    async function deleteCard(id) {
+      await fetch(`${apiBase}/${id}`, {
+        method: 'DELETE'
+      });
+      fetchCards();
+    }
+
+    window.onload = fetchCards;
+  </script>
+</head>
+<body>
+  <h1>Credit Cards</h1>
+
+  <form onsubmit="event.preventDefault(); createCard();">
+    <input id="card_number" placeholder="Card Number" required />
+    <input id="limit" placeholder="Limit" required />
+    <input id="user_id" placeholder="User ID" required />
+    <button type="submit">Add Card</button>
+  </form>
+
+  <ul id="card-list"></ul>
+</body>
+</html>
