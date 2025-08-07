@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Users Management</title>
+  <script>
+    const API_URL = 'http://ec2-3-145-200-54.us-east-2.compute.amazonaws.com:3001/pip/users';
+
+    async function fetchUsers() {
+      const res = await fetch(API_URL);
+      const users = await res.json();
+      const list = document.getElementById('user-list');
+      list.innerHTML = '';
+
+      users.forEach(user => {
+        const item = document.createElement('li');
+        item.innerHTML = `
+          <strong>${user.username}</strong> (Email: ${user.email}, Role: ${user.role})
+          <button onclick="showEdit(${user.id}, '${user.username}', '${user.email}', '${user.role}')">Edit</button>
+          <button onclick="deleteUser(${user.id})">Delete</button>
+        `;
+        list.appendChild(item);
+      });
+    }
+
+    async function createUser() {
+      const username = document.getElementById('username').value;
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const role = document.getElementById('role').value;
+
+      await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, email, password, role })
+      });
+
+      document.getElementById('create-form').reset();
+      fetchUsers();
+    }
+
+    function showEdit(id, username, email, role) {
+      document.getElementById('edit-id').value = id;
+      document.getElementById('edit-username').value = username;
+      document.getElementById('edit-email').value = email;
+      document.getElementById('edit-role').value = role;
+      document.getElementById('edit-section').style.display = 'block';
+    }
+
+    async function updateUser() {
+      const id = document.getElementById('edit-id').value;
+      const email = document.getElementById('edit-email').value;
+      const role = document.getElementById('edit-role').value;
+
+      await fetch(`${API_URL}/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, role })
+      });
+
+      document.getElementById('edit-form').reset();
+      document.getElementById('edit-section').style.display = 'none';
+      fetchUsers();
+    }
+
+    async function deleteUser(id) {
+      await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+      fetchUsers();
+    }
+
+    window.onload = fetchUsers;
+  </script>
+</head>
+<body>
+  <h1>Manage Users</h1>
+
+  <h2>Create User</h2>
+  <form id="create-form" onsubmit="event.preventDefault(); createUser();">
+    <input id="username" placeholder="Username" required />
+    <input id="email" placeholder="Email" required />
+    <input id="password" placeholder="Password" required />
+    <input id="role" placeholder="Role" required />
+    <button type="submit">Create</button>
+  </form>
+
+  <h2>User List</h2>
+  <ul id="user-list"></ul>
+
+  <div id="edit-section" style="display:none;">
+    <h2>Edit User</h2>
+    <form id="edit-form" onsubmit="event.preventDefault(); updateUser();">
+      <input type="hidden" id="edit-id" />
+      <input id="edit-username" placeholder="Username" disabled />
+      <input id="edit-email" placeholder="Email" required />
+      <input id="edit-role" placeholder="Role" required />
+      <button type="submit">Update</button>
+    </form>
+  </div>
+</body>
+</html>

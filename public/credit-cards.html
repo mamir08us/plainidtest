@@ -1,34 +1,49 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Credit Cards</title>
+  <meta charset="UTF-8" />
+  <title>Credit Cards Management</title>
   <script>
-    const apiBase = 'http://ec2-3-145-200-54.us-east-2.compute.amazonaws.com:3001/pip/cards';
+    const API_URL = 'http://ec2-3-145-200-54.us-east-2.compute.amazonaws.com:3001/pip/cards';
 
     async function fetchCards() {
-      const res = await fetch(apiBase);
-      const data = await res.json();
-      const list = data.map(card => `
-        <li>
-          <strong>ID:</strong> ${card.id},
-          <strong>Card Number:</strong> 
-          <input value="${card.card_number}" onchange="updateField(${card.id}, 'card_number', this.value)" />
-          <strong>Limit:</strong> 
-          <input value="${card.limit}" onchange="updateField(${card.id}, 'limit', this.value)" />
-          <strong>User ID:</strong> 
-          <input value="${card.user_id}" onchange="updateField(${card.id}, 'user_id', this.value)" />
-          <button onclick="deleteCard(${card.id})">Delete</button>
-        </li>
-      `).join('');
-      document.getElementById('card-list').innerHTML = list;
+      const res = await fetch(API_URL);
+      const cards = await res.json();
+      const list = document.getElementById('card-list');
+      list.innerHTML = '';
+
+      cards.forEach(card => {
+        const item = document.createElement('li');
+        item.innerHTML = `
+          <strong>Card Number:</strong> ${card.card_number},
+          <strong>Limit:</strong> ${card.limit},
+          <strong>User ID:</strong> ${card.user_id}
+          <button onclick="showEdit('${card.id}', '${card.card_number}', ${card.limit}, ${card.user_id})">Edit</button>
+          <button onclick="deleteCard('${card.id}')">Delete</button>
+        `;
+        list.appendChild(item);
+      });
     }
 
     async function createCard() {
-      const card_number = document.getElementById('card_number').value;
-      const limit = document.getElementById('limit').value;
-      const user_id = document.getElementById('user_id').value;
+      const card_number = document.getElementById('card_number').value.trim();
+      const limitStr = document.getElementById('limit').value.trim();
+      const userIdStr = document.getElementById('user_id').value.trim();
 
-      await fetch(apiBase, {
+      if (!card_number || !limitStr || !userIdStr) {
+        alert('Please fill all fields');
+        return;
+      }
+
+      const limit = parseFloat(limitStr);
+      const user_id = parseInt(userIdStr, 10);
+
+      if (isNaN(limit) || isNaN(user_id)) {
+        alert('Limit must be a number and User ID must be an integer');
+        return;
+      }
+
+      await fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ card_number, limit, user_id })
@@ -41,18 +56,48 @@
       fetchCards();
     }
 
-    async function updateField(id, field, value) {
-      await fetch(`${apiBase}/${id}`, {
+    function showEdit(id, card_number, limit, user_id) {
+      document.getElementById('edit-id').value = id;
+      document.getElementById('edit-card_number').value = card_number;
+      document.getElementById('edit-limit').value = limit;
+      document.getElementById('edit-user_id').value = user_id;
+      document.getElementById('edit-section').style.display = 'block';
+    }
+
+    async function updateCard() {
+      const id = document.getElementById('edit-id').value;
+      const card_number = document.getElementById('edit-card_number').value.trim();
+      const limitStr = document.getElementById('edit-limit').value.trim();
+      const userIdStr = document.getElementById('edit-user_id').value.trim();
+
+      if (!card_number || !limitStr || !userIdStr) {
+        alert('Please fill all fields');
+        return;
+      }
+
+      const limit = parseFloat(limitStr);
+      const user_id = parseInt(userIdStr, 10);
+
+      if (isNaN(limit) || isNaN(user_id)) {
+        alert('Limit must be a number and User ID must be an integer');
+        return;
+      }
+
+      await fetch(`${API_URL}/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ [field]: value })
+        body: JSON.stringify({ card_number, limit, user_id })
       });
+
+      document.getElementById('edit-form').reset();
+      document.getElementById('edit-section').style.display = 'none';
+      fetchCards();
     }
 
     async function deleteCard(id) {
-      await fetch(`${apiBase}/${id}`, {
-        method: 'DELETE'
-      });
+      if (!confirm('Are you sure you want to delete this credit card?')) return;
+
+      await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
       fetchCards();
     }
 
@@ -60,15 +105,28 @@
   </script>
 </head>
 <body>
-  <h1>Credit Cards</h1>
+  <h1>Manage Credit Cards</h1>
 
-  <form onsubmit="event.preventDefault(); createCard();">
+  <h2>Create Credit Card</h2>
+  <form id="create-form" onsubmit="event.preventDefault(); createCard();">
     <input id="card_number" placeholder="Card Number" required />
-    <input id="limit" placeholder="Limit" required />
-    <input id="user_id" placeholder="User ID" required />
-    <button type="submit">Add Card</button>
+    <input id="limit" placeholder="Limit" required type="number" step="0.01" />
+    <input id="user_id" placeholder="User ID" required type="number" />
+    <button type="submit">Create</button>
   </form>
 
+  <h2>Credit Card List</h2>
   <ul id="card-list"></ul>
+
+  <div id="edit-section" style="display:none;">
+    <h2>Edit Credit Card</h2>
+    <form id="edit-form" onsubmit="event.preventDefault(); updateCard();">
+      <input type="hidden" id="edit-id" />
+      <input id="edit-card_number" placeholder="Card Number" required />
+      <input id="edit-limit" placeholder="Limit" required type="number" step="0.01" />
+      <input id="edit-user_id" placeholder="User ID" required type="number" />
+      <button type="submit">Update</button>
+    </form>
+  </div>
 </body>
 </html>

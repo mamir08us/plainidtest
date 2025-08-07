@@ -1,50 +1,98 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Payments</title>
+  <meta charset="UTF-8" />
+  <title>Payments Management</title>
   <script>
-    const apiBase = 'http://ec2-3-145-200-54.us-east-2.compute.amazonaws.com:3001/pip/payments';
+    const API_URL = 'http://ec2-3-145-200-54.us-east-2.compute.amazonaws.com:3001/pip/payments';
 
     async function fetchPayments() {
-      const res = await fetch(apiBase);
-      const data = await res.json();
-      const list = data.map(payment => `
-        <li>
+      const res = await fetch(API_URL);
+      const payments = await res.json();
+      const list = document.getElementById('payment-list');
+      list.innerHTML = '';
+
+      payments.forEach(payment => {
+        const item = document.createElement('li');
+        item.innerHTML = `
           <strong>ID:</strong> ${payment.id},
-          <strong>Amount:</strong> <input value="${payment.amount}" onchange="updateField(${payment.id}, 'amount', this.value)" />
-          <strong>Account:</strong> <input value="${payment.account_id}" onchange="updateField(${payment.id}, 'account_id', this.value)" />
-          <strong>Date:</strong> <input value="${payment.date}" onchange="updateField(${payment.id}, 'date', this.value)" />
-          <button onclick="deletePayment(${payment.id})">Delete</button>
-        </li>
-      `).join('');
-      document.getElementById('payment-list').innerHTML = list;
+          <strong>Amount:</strong> ${payment.amount},
+          <strong>From Account:</strong> ${payment.from_account},
+          <strong>To Entity:</strong> ${payment.to_entity}
+          <button onclick="showEdit('${payment.id}', ${payment.amount}, '${payment.from_account}', '${payment.to_entity}')">Edit</button>
+          <button onclick="deletePayment('${payment.id}')">Delete</button>
+        `;
+        list.appendChild(item);
+      });
     }
 
     async function createPayment() {
-      const amount = document.getElementById('amount').value;
-      const account_id = document.getElementById('account_id').value;
-      const date = document.getElementById('date').value;
-      await fetch(apiBase, {
+      const id = document.getElementById('id').value.trim();
+      const amountStr = document.getElementById('amount').value.trim();
+      const from_account = document.getElementById('from_account').value.trim();
+      const to_entity = document.getElementById('to_entity').value.trim();
+
+      if (!id || !amountStr || !from_account || !to_entity) {
+        alert('Please fill all fields');
+        return;
+      }
+
+      const amount = parseFloat(amountStr);
+      if (isNaN(amount)) {
+        alert('Amount must be a number');
+        return;
+      }
+
+      await fetch(API_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount, account_id, date })
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({id, amount, from_account, to_entity})
       });
-      document.getElementById('amount').value = '';
-      document.getElementById('account_id').value = '';
-      document.getElementById('date').value = '';
+
+      document.getElementById('create-form').reset();
       fetchPayments();
     }
 
-    async function updateField(id, field, value) {
-      await fetch(`${apiBase}/${id}`, {
+    function showEdit(id, amount, from_account, to_entity) {
+      document.getElementById('edit-id').value = id;
+      document.getElementById('edit-amount').value = amount;
+      document.getElementById('edit-from_account').value = from_account;
+      document.getElementById('edit-to_entity').value = to_entity;
+      document.getElementById('edit-section').style.display = 'block';
+    }
+
+    async function updatePayment() {
+      const id = document.getElementById('edit-id').value;
+      const amountStr = document.getElementById('edit-amount').value.trim();
+      const from_account = document.getElementById('edit-from_account').value.trim();
+      const to_entity = document.getElementById('edit-to_entity').value.trim();
+
+      if (!amountStr || !from_account || !to_entity) {
+        alert('Please fill all fields');
+        return;
+      }
+
+      const amount = parseFloat(amountStr);
+      if (isNaN(amount)) {
+        alert('Amount must be a number');
+        return;
+      }
+
+      await fetch(`${API_URL}/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ [field]: value })
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({amount, from_account, to_entity})
       });
+
+      document.getElementById('edit-form').reset();
+      document.getElementById('edit-section').style.display = 'none';
+      fetchPayments();
     }
 
     async function deletePayment(id) {
-      await fetch(`${apiBase}/${id}`, { method: 'DELETE' });
+      if (!confirm('Are you sure you want to delete this payment?')) return;
+
+      await fetch(`${API_URL}/${id}`, {method: 'DELETE'});
       fetchPayments();
     }
 
@@ -52,13 +100,29 @@
   </script>
 </head>
 <body>
-  <h1>Payments</h1>
-  <form onsubmit="event.preventDefault(); createPayment();">
-    <input id="amount" placeholder="Amount" required />
-    <input id="account_id" placeholder="Account ID" required />
-    <input id="date" placeholder="YYYY-MM-DD" required />
-    <button type="submit">Add Payment</button>
+  <h1>Manage Payments</h1>
+
+  <h2>Create Payment</h2>
+  <form id="create-form" onsubmit="event.preventDefault(); createPayment();">
+    <input id="id" placeholder="Payment ID" required />
+    <input id="amount" placeholder="Amount" type="number" step="0.01" required />
+    <input id="from_account" placeholder="From Account" required />
+    <input id="to_entity" placeholder="To Entity" required />
+    <button type="submit">Create</button>
   </form>
+
+  <h2>Payment List</h2>
   <ul id="payment-list"></ul>
+
+  <div id="edit-section" style="display:none;">
+    <h2>Edit Payment</h2>
+    <form id="edit-form" onsubmit="event.preventDefault(); updatePayment();">
+      <input type="hidden" id="edit-id" />
+      <input id="edit-amount" placeholder="Amount" type="number" step="0.01" required />
+      <input id="edit-from_account" placeholder="From Account" required />
+      <input id="edit-to_entity" placeholder="To Entity" required />
+      <button type="submit">Update</button>
+    </form>
+  </div>
 </body>
 </html>

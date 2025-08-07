@@ -1,47 +1,80 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Branches</title>
+  <meta charset="UTF-8" />
+  <title>Branches Management</title>
   <script>
-    const apiBase = 'http://ec2-3-145-200-54.us-east-2.compute.amazonaws.com:3001/pip/branches';
+    const API_URL = 'http://ec2-3-145-200-54.us-east-2.compute.amazonaws.com:3001/pip/branches';
 
     async function fetchBranches() {
-      const res = await fetch(apiBase);
-      const data = await res.json();
-      const list = data.map(branch => `
-        <li>
-          <strong>ID:</strong> ${branch.id},
-          <strong>Name:</strong> <input value="${branch.name}" onchange="updateField(${branch.id}, 'name', this.value)" />
-          <strong>Location:</strong> <input value="${branch.location}" onchange="updateField(${branch.id}, 'location', this.value)" />
-          <button onclick="deleteBranch(${branch.id})">Delete</button>
-        </li>
-      `).join('');
-      document.getElementById('branch-list').innerHTML = list;
+      const res = await fetch(API_URL);
+      const branches = await res.json();
+      const list = document.getElementById('branch-list');
+      list.innerHTML = '';
+
+      branches.forEach(branch => {
+        const item = document.createElement('li');
+        item.innerHTML = `
+          <strong>${branch.name}</strong> (Location: ${branch.location})
+          <button onclick="showEdit('${branch.id}', '${branch.name}', '${branch.location}')">Edit</button>
+          <button onclick="deleteBranch('${branch.id}')">Delete</button>
+        `;
+        list.appendChild(item);
+      });
     }
 
     async function createBranch() {
-      const name = document.getElementById('name').value;
-      const location = document.getElementById('location').value;
-      await fetch(apiBase, {
+      const id = document.getElementById('id').value.trim();
+      const name = document.getElementById('name').value.trim();
+      const location = document.getElementById('location').value.trim();
+
+      if (!id || !name || !location) {
+        alert('Please fill all fields');
+        return;
+      }
+
+      await fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, location })
+        body: JSON.stringify({ id, name, location })
       });
-      document.getElementById('name').value = '';
-      document.getElementById('location').value = '';
+
+      document.getElementById('create-form').reset();
       fetchBranches();
     }
 
-    async function updateField(id, field, value) {
-      await fetch(`${apiBase}/${id}`, {
+    function showEdit(id, name, location) {
+      document.getElementById('edit-id').value = id;
+      document.getElementById('edit-name').value = name;
+      document.getElementById('edit-location').value = location;
+      document.getElementById('edit-section').style.display = 'block';
+    }
+
+    async function updateBranch() {
+      const id = document.getElementById('edit-id').value;
+      const name = document.getElementById('edit-name').value.trim();
+      const location = document.getElementById('edit-location').value.trim();
+
+      if (!name || !location) {
+        alert('Please fill all fields');
+        return;
+      }
+
+      await fetch(`${API_URL}/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ [field]: value })
+        body: JSON.stringify({ name, location })
       });
+
+      document.getElementById('edit-form').reset();
+      document.getElementById('edit-section').style.display = 'none';
+      fetchBranches();
     }
 
     async function deleteBranch(id) {
-      await fetch(`${apiBase}/${id}`, { method: 'DELETE' });
+      if (!confirm('Are you sure you want to delete this branch?')) return;
+
+      await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
       fetchBranches();
     }
 
@@ -49,12 +82,27 @@
   </script>
 </head>
 <body>
-  <h1>Branches</h1>
-  <form onsubmit="event.preventDefault(); createBranch();">
+  <h1>Manage Branches</h1>
+
+  <h2>Create Branch</h2>
+  <form id="create-form" onsubmit="event.preventDefault(); createBranch();">
+    <input id="id" placeholder="Branch ID" required />
     <input id="name" placeholder="Branch Name" required />
     <input id="location" placeholder="Location" required />
-    <button type="submit">Add Branch</button>
+    <button type="submit">Create</button>
   </form>
+
+  <h2>Branch List</h2>
   <ul id="branch-list"></ul>
+
+  <div id="edit-section" style="display:none;">
+    <h2>Edit Branch</h2>
+    <form id="edit-form" onsubmit="event.preventDefault(); updateBranch();">
+      <input type="hidden" id="edit-id" />
+      <input id="edit-name" placeholder="Branch Name" required />
+      <input id="edit-location" placeholder="Location" required />
+      <button type="submit">Update</button>
+    </form>
+  </div>
 </body>
 </html>
