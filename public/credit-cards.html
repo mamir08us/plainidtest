@@ -4,19 +4,20 @@
 <meta charset="UTF-8">
 <title>Credit Cards Management</title>
 <style>
-body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:24px}
-h1,h2{margin:0 0 12px}
-form{margin:16px 0;display:grid;gap:8px;max-width:480px}
-input{padding:8px;font-size:14px}
-button{padding:8px 12px;cursor:pointer}
-ul{list-style:none;padding:0}
-li{padding:10px 8px;border:1px solid #ddd;border-radius:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px}
-.row{display:flex;gap:8px;align-items:center}
-.muted{color:#666;font-size:12px}
-#edit-section{border-top:1px solid #eee;margin-top:24px;padding-top:16px;max-width:480px}
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; }
+  h1,h2{margin:0 0 12px}
+  form{margin:16px 0;display:grid;gap:8px;max-width:480px}
+  input{padding:8px;font-size:14px}
+  button{padding:8px 12px;cursor:pointer}
+  ul{list-style:none;padding:0}
+  li{padding:10px 8px;border:1px solid #ddd;border-radius:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .row{display:flex;gap:8px;align-items:center}
+  .muted{color:#666;font-size:12px}
+  #edit-section{border-top:1px solid #eee;margin-top:24px;padding-top:16px;max-width:480px}
 </style>
 <script>
 const API_URL='https://ec2-3-145-200-54.us-east-2.compute.amazonaws.com/pip/cards';
+
 function escapeHtml(str){return String(str).replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));}
 function escapeAttr(str){return String(str).replace(/['"\\]/g,s=>({"'":'&#39;','"':'&quot;','\\':'\\\\'}[s]));}
 
@@ -25,15 +26,15 @@ async function fetchCards(){
   if(!res.ok){alert('Failed to fetch credit cards');return;}
   const cards=await res.json();
   const list=document.getElementById('card-list'); list.innerHTML='';
-  cards.forEach(c=>{
+  cards.forEach(card=>{
     const li=document.createElement('li');
     li.innerHTML=`<div>
-      <strong>${escapeHtml(c.holder)}</strong>
-      <div class="muted">Type: ${escapeHtml(c.type)}, Limit: ${c.card_limit}, ID: ${escapeHtml(c.id)}</div>
+      <strong>${escapeHtml(card.holder)}</strong>
+      <div class="muted">Type: ${escapeHtml(card.type)} &nbsp;•&nbsp; Limit: ${card.card_limit} &nbsp;•&nbsp; ID: ${escapeHtml(card.id)}</div>
     </div>
     <div class="row">
-      <button onclick="showEdit('${escapeAttr(c.id)}','${escapeAttr(c.type)}','${c.card_limit}','${escapeAttr(c.holder)}')">Edit</button>
-      <button onclick="deleteCard('${escapeAttr(c.id)}')">Delete</button>
+      <button onclick="showEdit('${escapeAttr(card.id)}','${escapeAttr(card.type)}','${card.card_limit}','${escapeAttr(card.holder)}')">Edit</button>
+      <button onclick="deleteCard('${escapeAttr(card.id)}')">Delete</button>
     </div>`;
     list.appendChild(li);
   });
@@ -42,13 +43,13 @@ async function fetchCards(){
 async function createCard(){
   const id=document.getElementById('id').value.trim();
   const type=document.getElementById('type').value.trim();
-  const limitStr=document.getElementById('card_limit').value.trim();
+  const card_limit=parseFloat(document.getElementById('card_limit').value.trim());
   const holder=document.getElementById('holder').value.trim();
-  if(!id||!type||!limitStr||!holder){alert('All fields required');return;}
-  const card_limit=parseFloat(limitStr); if(isNaN(card_limit)){alert('Card limit must be a number');return;}
+  if(!id||!type||isNaN(card_limit)||!holder){alert('All fields are required and must be valid');return;}
   const res=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,type,card_limit,holder})});
   if(!res.ok){const err=await res.json().catch(()=>({}));alert('Failed to create card: '+(err.error||res.status));return;}
-  document.getElementById('create-form').reset(); fetchCards();
+  document.getElementById('create-form').reset();
+  fetchCards();
 }
 
 function showEdit(id,type,card_limit,holder){
@@ -64,13 +65,21 @@ async function updateCard(){
   const type=document.getElementById('edit-type').value.trim();
   const card_limit=parseFloat(document.getElementById('edit-card_limit').value.trim());
   const holder=document.getElementById('edit-holder').value.trim();
-  if(!type||!holder||isNaN(card_limit)){alert('All fields required');return;}
+  if(!type||isNaN(card_limit)||!holder){alert('All fields are required and must be valid');return;}
   const res=await fetch(`${API_URL}/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,card_limit,holder})});
   if(!res.ok){const err=await res.json().catch(()=>({}));alert('Failed to update card: '+(err.error||res.status));return;}
-  document.getElementById('edit-form').reset(); document.getElementById('edit-section').style.display='none'; fetchCards();
+  document.getElementById('edit-form').reset();
+  document.getElementById('edit-section').style.display='none';
+  fetchCards();
 }
 
-async function deleteCard(id){if(!confirm('Delete this card?')) return; const res=await fetch(`${API_URL}/${id}`,{method:'DELETE'}); if(!res.ok){const err=await res.json().catch(()=>({}));alert('Failed to delete card: '+(err.error||res.status));return;} fetchCards();}
+async function deleteCard(id){
+  if(!confirm('Delete this credit card?')) return;
+  const res=await fetch(`${API_URL}/${id}`,{method:'DELETE'});
+  if(!res.ok){const err=await res.json().catch(()=>({}));alert('Failed to delete card: '+(err.error||res.status));return;}
+  fetchCards();
+}
+
 window.onload=fetchCards;
 </script>
 </head>
@@ -79,11 +88,11 @@ window.onload=fetchCards;
 
 <h2>Create Credit Card</h2>
 <form id="create-form" onsubmit="event.preventDefault();createCard();">
-<input id="id" placeholder="Card ID" required>
-<input id="type" placeholder="Card Type" required>
-<input id="card_limit" placeholder="Card Limit" required type="number" step="0.01">
-<input id="holder" placeholder="Card Holder" required>
-<button type="submit">Create</button>
+  <input id="id" placeholder="Card ID" required>
+  <input id="type" placeholder="Card Type" required>
+  <input id="card_limit" type="number" step="0.01" placeholder="Card Limit" required>
+  <input id="holder" placeholder="Card Holder Name" required>
+  <button type="submit">Create</button>
 </form>
 
 <h2>Credit Card List</h2>
@@ -92,11 +101,11 @@ window.onload=fetchCards;
 <div id="edit-section" style="display:none;">
 <h2>Edit Credit Card</h2>
 <form id="edit-form" onsubmit="event.preventDefault();updateCard();">
-<input type="hidden" id="edit-id">
-<input id="edit-type" placeholder="Card Type" required>
-<input id="edit-card_limit" placeholder="Card Limit" required type="number" step="0.01">
-<input id="edit-holder" placeholder="Card Holder" required>
-<button type="submit">Update</button>
+  <input type="hidden" id="edit-id">
+  <input id="edit-type" placeholder="Card Type" required>
+  <input id="edit-card_limit" type="number" step="0.01" placeholder="Card Limit" required>
+  <input id="edit-holder" placeholder="Card Holder Name" required>
+  <button type="submit">Update</button>
 </form>
 </div>
 </body>
