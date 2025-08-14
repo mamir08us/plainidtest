@@ -22,35 +22,49 @@ function escapeHtml(str){return String(str).replace(/[&<>"']/g,s=>({'&':'&amp;',
 function escapeAttr(str){return String(str).replace(/['"\\]/g,s=>({"'":'&#39;','"':'&quot;','\\':'\\\\'}[s]));}
 
 async function fetchAccounts(){
-  const res=await fetch(API_URL);
-  if(!res.ok){alert('Failed to fetch accounts');return;}
-  const accounts=await res.json();
-  const list=document.getElementById('account-list'); list.innerHTML='';
-  accounts.forEach(acc=>{
-    const li=document.createElement('li');
-    li.innerHTML=`<div>
-      <strong>${escapeHtml(acc.name)}</strong>
-      <div class="muted">Type: ${escapeHtml(acc.type)} &nbsp;•&nbsp; Balance: ${acc.balance} &nbsp;•&nbsp; User ID: ${acc.user_id} &nbsp;•&nbsp; ID: ${escapeHtml(acc.id)}</div>
-    </div>
-    <div class="row">
-      <button onclick="showEdit('${escapeAttr(acc.id)}','${escapeAttr(acc.name)}','${escapeAttr(acc.type)}','${acc.balance}','${acc.user_id}')">Edit</button>
-      <button onclick="deleteAccount('${escapeAttr(acc.id)}')">Delete</button>
-    </div>`;
-    list.appendChild(li);
-  });
+  try {
+    const res=await fetch(API_URL);
+    if(!res.ok){alert('Failed to fetch accounts');return;}
+    const accounts=await res.json();
+    const list=document.getElementById('account-list'); list.innerHTML='';
+    accounts.forEach(acc=>{
+      const li=document.createElement('li');
+      li.innerHTML=`<div>
+        <strong>${escapeHtml(acc.name)}</strong>
+        <div class="muted">Type: ${escapeHtml(acc.type)} &nbsp;•&nbsp; Balance: ${acc.balance} &nbsp;•&nbsp; User ID: ${acc.user_id} &nbsp;•&nbsp; ID: ${escapeHtml(acc.id)}</div>
+      </div>
+      <div class="row">
+        <button onclick="showEdit('${escapeAttr(acc.id)}','${escapeAttr(acc.name)}','${escapeAttr(acc.type)}','${acc.balance}','${acc.user_id}')">Edit</button>
+        <button onclick="deleteAccount('${escapeAttr(acc.id)}')">Delete</button>
+      </div>`;
+      list.appendChild(li);
+    });
+  } catch (err) {
+    alert('Error fetching accounts: ' + err.message);
+  }
 }
 
 async function createAccount(){
   const id=document.getElementById('id').value.trim();
   const name=document.getElementById('name').value.trim();
   const type=document.getElementById('type').value.trim();
-  const balance=parseFloat(document.getElementById('balance').value.trim());
-  const user_id=parseInt(document.getElementById('user_id').value.trim(),10);
+  const balanceStr=document.getElementById('balance').value.trim();
+  const userIdStr=document.getElementById('user_id').value.trim();
+  const balance=parseFloat(balanceStr);
+  const user_id=parseInt(userIdStr,10);
+
   if(!id||!name||!type||isNaN(balance)||isNaN(user_id)){alert('All fields are required and must be valid');return;}
-  const res=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,name,type,balance,user_id})});
-  if(!res.ok){const err=await res.json().catch(()=>({}));alert('Failed to create account: '+(err.error||res.status));return;}
-  document.getElementById('create-form').reset();
-  fetchAccounts();
+
+  // Check for duplicate ID in current list
+  const existingIds=Array.from(document.querySelectorAll('#account-list li')).map(li => li.querySelector('strong').textContent.trim());
+  if(existingIds.includes(id)){alert(`Account ID "${id}" already exists.`); return;}
+
+  try {
+    const res=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,name,type,balance,user_id})});
+    if(!res.ok){const err=await res.json().catch(()=>({})); alert('Failed to create account: '+(err.error||res.status)); return;}
+    document.getElementById('create-form').reset();
+    fetchAccounts();
+  } catch(err){alert('Error connecting to server: '+err.message);}
 }
 
 function showEdit(id,name,type,balance,user_id){
@@ -68,19 +82,25 @@ async function updateAccount(){
   const type=document.getElementById('edit-type').value.trim();
   const balance=parseFloat(document.getElementById('edit-balance').value.trim());
   const user_id=parseInt(document.getElementById('edit-user_id').value.trim(),10);
+
   if(!name||!type||isNaN(balance)||isNaN(user_id)){alert('All fields are required and must be valid');return;}
-  const res=await fetch(`${API_URL}/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,type,balance,user_id})});
-  if(!res.ok){const err=await res.json().catch(()=>({}));alert('Failed to update account: '+(err.error||res.status));return;}
-  document.getElementById('edit-form').reset();
-  document.getElementById('edit-section').style.display='none';
-  fetchAccounts();
+
+  try {
+    const res=await fetch(`${API_URL}/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,type,balance,user_id})});
+    if(!res.ok){const err=await res.json().catch(()=>({})); alert('Failed to update account: '+(err.error||res.status)); return;}
+    document.getElementById('edit-form').reset();
+    document.getElementById('edit-section').style.display='none';
+    fetchAccounts();
+  } catch(err){alert('Error connecting to server: '+err.message);}
 }
 
 async function deleteAccount(id){
   if(!confirm('Delete this account?')) return;
-  const res=await fetch(`${API_URL}/${id}`,{method:'DELETE'});
-  if(!res.ok){const err=await res.json().catch(()=>({}));alert('Failed to delete account: '+(err.error||res.status));return;}
-  fetchAccounts();
+  try {
+    const res=await fetch(`${API_URL}/${id}`,{method:'DELETE'});
+    if(!res.ok){const err=await res.json().catch(()=>({})); alert('Failed to delete account: '+(err.error||res.status)); return;}
+    fetchAccounts();
+  } catch(err){alert('Error connecting to server: '+err.message);}
 }
 
 window.onload=fetchAccounts;
