@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Investments Management</title>
+<style>
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:24px}
+h1,h2{margin:0 0 12px}
+form{margin:16px 0;display:grid;gap:8px;max-width:480px}
+input{padding:8px;font-size:14px}
+button{padding:8px 12px;cursor:pointer}
+ul{list-style:none;padding:0}
+li{padding:10px 8px;border:1px solid #ddd;border-radius:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.row{display:flex;gap:8px;align-items:center}
+.muted{color:#666;font-size:12px}
+#edit-section{border-top:1px solid #eee;margin-top:24px;padding-top:16px;max-width:480px}
+</style>
+<script>
+const API_URL='https://ec2-3-145-200-54.us-east-2.compute.amazonaws.com/pip/investments';
+function escapeHtml(str){return String(str).replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));}
+function escapeAttr(str){return String(str).replace(/['"\\]/g,s=>({"'":'&#39;','"':'&quot;','\\':'\\\\'}[s]));}
+
+async function fetchInvestments(){
+  const res=await fetch(API_URL); if(!res.ok){alert('Failed to fetch investments');return;}
+  const items=await res.json(); const list=document.getElementById('investment-list'); list.innerHTML='';
+  items.forEach(i=>{
+    const li=document.createElement('li');
+    li.innerHTML=`<div>
+      <strong>${escapeHtml(i.name)}</strong>
+      <div class="muted">Amount: ${i.amount}, ID: ${escapeHtml(i.id)}</div>
+    </div>
+    <div class="row">
+      <button onclick="showEdit('${escapeAttr(i.id)}','${escapeAttr(i.name)}','${i.amount}')">Edit</button>
+      <button onclick="deleteInvestment('${escapeAttr(i.id)}')">Delete</button>
+    </div>`;
+    list.appendChild(li);
+  });
+}
+
+async function createInvestment(){
+  const id=document.getElementById('id').value.trim();
+  const name=document.getElementById('name').value.trim();
+  const amount=parseFloat(document.getElementById('amount').value.trim());
+  if(!id||!name||isNaN(amount)){alert('All fields required and amount must be number');return;}
+  const res=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,name,amount})});
+  if(!res.ok){const err=await res.json().catch(()=>({}));alert('Failed to create: '+(err.error||res.status));return;}
+  document.getElementById('create-form').reset(); fetchInvestments();
+}
+
+function showEdit(id,name,amount){
+  document.getElementById('edit-id').value=id;
+  document.getElementById('edit-name').value=name;
+  document.getElementById('edit-amount').value=amount;
+  document.getElementById('edit-section').style.display='block';
+}
+
+async function updateInvestment(){
+  const id=document.getElementById('edit-id').value;
+  const name=document.getElementById('edit-name').value.trim();
+  const amount=parseFloat(document.getElementById('edit-amount').value.trim());
+  if(!name||isNaN(amount)){alert('All fields required');return;}
+  const res=await fetch(`${API_URL}/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,amount})});
+  if(!res.ok){const err=await res.json().catch(()=>({}));alert('Failed to update: '+(err.error||res.status));return;}
+  document.getElementById('edit-form').reset(); document.getElementById('edit-section').style.display='none'; fetchInvestments();
+}
+
+async function deleteInvestment(id){if(!confirm('Delete this investment?')) return; const res=await fetch(`${API_URL}/${id}`,{method:'DELETE'}); if(!res.ok){const err=await res.json().catch(()=>({}));alert('Failed to delete: '+(err.error||res.status));return;} fetchInvestments();}
+window.onload=fetchInvestments;
+</script>
+</head>
+<body>
+<h1>Manage Investments</h1>
+
+<h2>Create Investment</h2>
+<form id="create-form" onsubmit="event.preventDefault();createInvestment();">
+<input id="id" placeholder="Investment ID" required>
+<input id="name" placeholder="Investment Name" required>
+<input id="amount" placeholder="Amount" required type="number" step="0.01">
+<button type="submit">Create</button>
+</form>
+
+<h2>Investment List</h2>
+<ul id="investment-list"></ul>
+
+<div id="edit-section" style="display:none;">
+<h2>Edit Investment</h2>
+<form id="edit-form" onsubmit="event.preventDefault();updateInvestment();">
+<input type="hidden" id="edit-id">
+<input id="edit-name" placeholder="Investment Name" required>
+<input id="edit-amount" placeholder="Amount" required type="number" step="0.01">
+<button type="submit">Update</button>
+</form>
+</div>
+</body>
+</html>

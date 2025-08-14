@@ -1,134 +1,117 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Accounts Management</title>
-  <script>
-    const API_URL = 'https://ec2-3-145-200-54.us-east-2.compute.amazonaws.com/pip/accounts';
+<meta charset="UTF-8">
+<title>Accounts Management</title>
+<style>
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; }
+  h1,h2{margin:0 0 12px}
+  form{margin:16px 0;display:grid;gap:8px;max-width:480px}
+  input{padding:8px;font-size:14px}
+  button{padding:8px 12px;cursor:pointer}
+  ul{list-style:none;padding:0}
+  li{padding:10px 8px;border:1px solid #ddd;border-radius:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .row{display:flex;gap:8px;align-items:center}
+  .muted{color:#666;font-size:12px}
+  #edit-section{border-top:1px solid #eee;margin-top:24px;padding-top:16px;max-width:480px}
+</style>
+<script>
+const API_URL='https://ec2-3-145-200-54.us-east-2.compute.amazonaws.com/pip/accounts';
 
-    async function fetchAccounts() {
-      const res = await fetch(API_URL);
-      const accounts = await res.json();
-      const list = document.getElementById('account-list');
-      list.innerHTML = '';
+function escapeHtml(str){return String(str).replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));}
+function escapeAttr(str){return String(str).replace(/['"\\]/g,s=>({"'":'&#39;','"':'&quot;','\\':'\\\\'}[s]));}
 
-      accounts.forEach(account => {
-        const item = document.createElement('li');
-        item.innerHTML = `
-          <strong>${account.name}</strong> (Type: ${account.type}, Balance: ${account.balance}, User ID: ${account.user_id})
-          <button onclick="showEdit('${account.id}', '${account.name}', '${account.type}', ${account.balance}, ${account.user_id})">Edit</button>
-          <button onclick="deleteAccount('${account.id}')">Delete</button>
-        `;
-        list.appendChild(item);
-      });
-    }
+async function fetchAccounts(){
+  const res=await fetch(API_URL);
+  if(!res.ok){alert('Failed to fetch accounts');return;}
+  const accounts=await res.json();
+  const list=document.getElementById('account-list'); list.innerHTML='';
+  accounts.forEach(acc=>{
+    const li=document.createElement('li');
+    li.innerHTML=`<div>
+      <strong>${escapeHtml(acc.name)}</strong>
+      <div class="muted">Type: ${escapeHtml(acc.type)} &nbsp;•&nbsp; Balance: ${acc.balance} &nbsp;•&nbsp; User ID: ${acc.user_id} &nbsp;•&nbsp; ID: ${escapeHtml(acc.id)}</div>
+    </div>
+    <div class="row">
+      <button onclick="showEdit('${escapeAttr(acc.id)}','${escapeAttr(acc.name)}','${escapeAttr(acc.type)}','${acc.balance}','${acc.user_id}')">Edit</button>
+      <button onclick="deleteAccount('${escapeAttr(acc.id)}')">Delete</button>
+    </div>`;
+    list.appendChild(li);
+  });
+}
 
-    async function createAccount() {
-      const id = document.getElementById('id').value.trim();
-      const name = document.getElementById('name').value.trim();
-      const type = document.getElementById('type').value.trim();
-      const balanceStr = document.getElementById('balance').value.trim();
-      const userIdStr = document.getElementById('user_id').value.trim();
+async function createAccount(){
+  const id=document.getElementById('id').value.trim();
+  const name=document.getElementById('name').value.trim();
+  const type=document.getElementById('type').value.trim();
+  const balance=parseFloat(document.getElementById('balance').value.trim());
+  const user_id=parseInt(document.getElementById('user_id').value.trim(),10);
+  if(!id||!name||!type||isNaN(balance)||isNaN(user_id)){alert('All fields are required and must be valid');return;}
+  const res=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,name,type,balance,user_id})});
+  if(!res.ok){const err=await res.json().catch(()=>({}));alert('Failed to create account: '+(err.error||res.status));return;}
+  document.getElementById('create-form').reset();
+  fetchAccounts();
+}
 
-      if (!id || !name || !type || !balanceStr || !userIdStr) {
-        alert('Please fill all fields');
-        return;
-      }
+function showEdit(id,name,type,balance,user_id){
+  document.getElementById('edit-id').value=id;
+  document.getElementById('edit-name').value=name;
+  document.getElementById('edit-type').value=type;
+  document.getElementById('edit-balance').value=balance;
+  document.getElementById('edit-user_id').value=user_id;
+  document.getElementById('edit-section').style.display='block';
+}
 
-      const balance = parseFloat(balanceStr);
-      const user_id = parseInt(userIdStr, 10);
+async function updateAccount(){
+  const id=document.getElementById('edit-id').value;
+  const name=document.getElementById('edit-name').value.trim();
+  const type=document.getElementById('edit-type').value.trim();
+  const balance=parseFloat(document.getElementById('edit-balance').value.trim());
+  const user_id=parseInt(document.getElementById('edit-user_id').value.trim(),10);
+  if(!name||!type||isNaN(balance)||isNaN(user_id)){alert('All fields are required and must be valid');return;}
+  const res=await fetch(`${API_URL}/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,type,balance,user_id})});
+  if(!res.ok){const err=await res.json().catch(()=>({}));alert('Failed to update account: '+(err.error||res.status));return;}
+  document.getElementById('edit-form').reset();
+  document.getElementById('edit-section').style.display='none';
+  fetchAccounts();
+}
 
-      if (isNaN(balance) || isNaN(user_id)) {
-        alert('Balance must be a number and User ID must be an integer');
-        return;
-      }
+async function deleteAccount(id){
+  if(!confirm('Delete this account?')) return;
+  const res=await fetch(`${API_URL}/${id}`,{method:'DELETE'});
+  if(!res.ok){const err=await res.json().catch(()=>({}));alert('Failed to delete account: '+(err.error||res.status));return;}
+  fetchAccounts();
+}
 
-      await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, name, type, balance, user_id })
-      });
-
-      document.getElementById('create-form').reset();
-      fetchAccounts();
-    }
-
-    function showEdit(id, name, type, balance, user_id) {
-      document.getElementById('edit-id').value = id;
-      document.getElementById('edit-name').value = name;
-      document.getElementById('edit-type').value = type;
-      document.getElementById('edit-balance').value = balance;
-      document.getElementById('edit-user_id').value = user_id;
-      document.getElementById('edit-section').style.display = 'block';
-    }
-
-    async function updateAccount() {
-      const id = document.getElementById('edit-id').value;
-      const name = document.getElementById('edit-name').value.trim();
-      const type = document.getElementById('edit-type').value.trim();
-      const balanceStr = document.getElementById('edit-balance').value.trim();
-      const userIdStr = document.getElementById('edit-user_id').value.trim();
-
-      if (!name || !type || !balanceStr || !userIdStr) {
-        alert('Please fill all fields');
-        return;
-      }
-
-      const balance = parseFloat(balanceStr);
-      const user_id = parseInt(userIdStr, 10);
-
-      if (isNaN(balance) || isNaN(user_id)) {
-        alert('Balance must be a number and User ID must be an integer');
-        return;
-      }
-
-      await fetch(`${API_URL}/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, type, balance, user_id })
-      });
-
-      document.getElementById('edit-form').reset();
-      document.getElementById('edit-section').style.display = 'none';
-      fetchAccounts();
-    }
-
-    async function deleteAccount(id) {
-      if (!confirm('Are you sure you want to delete this account?')) return;
-
-      await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
-      fetchAccounts();
-    }
-
-    window.onload = fetchAccounts;
-  </script>
+window.onload=fetchAccounts;
+</script>
 </head>
 <body>
-  <h1>Manage Accounts</h1>
+<h1>Manage Accounts</h1>
 
-  <h2>Create Account</h2>
-  <form id="create-form" onsubmit="event.preventDefault(); createAccount();">
-    <input id="id" placeholder="Account ID" required />
-    <input id="name" placeholder="Account Name" required />
-    <input id="type" placeholder="Account Type" required />
-    <input id="balance" placeholder="Balance" required type="number" step="0.01" />
-    <input id="user_id" placeholder="User ID" required type="number" />
-    <button type="submit">Create</button>
-  </form>
+<h2>Create Account</h2>
+<form id="create-form" onsubmit="event.preventDefault();createAccount();">
+  <input id="id" placeholder="Account ID" required>
+  <input id="name" placeholder="Account Name" required>
+  <input id="type" placeholder="Account Type" required>
+  <input id="balance" type="number" step="0.01" placeholder="Balance" required>
+  <input id="user_id" type="number" placeholder="User ID" required>
+  <button type="submit">Create</button>
+</form>
 
-  <h2>Account List</h2>
-  <ul id="account-list"></ul>
+<h2>Account List</h2>
+<ul id="account-list"></ul>
 
-  <div id="edit-section" style="display:none;">
-    <h2>Edit Account</h2>
-    <form id="edit-form" onsubmit="event.preventDefault(); updateAccount();">
-      <input type="hidden" id="edit-id" />
-      <input id="edit-name" placeholder="Account Name" required />
-      <input id="edit-type" placeholder="Account Type" required />
-      <input id="edit-balance" placeholder="Balance" required type="number" step="0.01" />
-      <input id="edit-user_id" placeholder="User ID" required type="number" />
-      <button type="submit">Update</button>
-    </form>
-  </div>
+<div id="edit-section" style="display:none;">
+<h2>Edit Account</h2>
+<form id="edit-form" onsubmit="event.preventDefault();updateAccount();">
+  <input type="hidden" id="edit-id">
+  <input id="edit-name" placeholder="Account Name" required>
+  <input id="edit-type" placeholder="Account Type" required>
+  <input id="edit-balance" type="number" step="0.01" placeholder="Balance" required>
+  <input id="edit-user_id" type="number" placeholder="User ID" required>
+  <button type="submit">Update</button>
+</form>
+</div>
 </body>
 </html>

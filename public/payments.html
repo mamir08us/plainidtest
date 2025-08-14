@@ -1,128 +1,100 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Payments Management</title>
-  <script>
-    const API_URL = 'https://ec2-3-145-200-54.us-east-2.compute.amazonaws.com/pip/payments';
+<meta charset="UTF-8">
+<title>Payments Management</title>
+<style>
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:24px}
+h1,h2{margin:0 0 12px}
+form{margin:16px 0;display:grid;gap:8px;max-width:480px}
+input{padding:8px;font-size:14px}
+button{padding:8px 12px;cursor:pointer}
+ul{list-style:none;padding:0}
+li{padding:10px 8px;border:1px solid #ddd;border-radius:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.row{display:flex;gap:8px;align-items:center}
+.muted{color:#666;font-size:12px}
+#edit-section{border-top:1px solid #eee;margin-top:24px;padding-top:16px;max-width:480px}
+</style>
+<script>
+const API_URL='https://ec2-3-145-200-54.us-east-2.compute.amazonaws.com/pip/payments';
+function escapeHtml(str){return String(str).replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));}
+function escapeAttr(str){return String(str).replace(/['"\\]/g,s=>({"'":'&#39;','"':'&quot;','\\':'\\\\'}[s]));}
 
-    async function fetchPayments() {
-      const res = await fetch(API_URL);
-      const payments = await res.json();
-      const list = document.getElementById('payment-list');
-      list.innerHTML = '';
+async function fetchPayments(){
+  const res=await fetch(API_URL); if(!res.ok){alert('Failed to fetch payments');return;}
+  const items=await res.json(); const list=document.getElementById('payment-list'); list.innerHTML='';
+  items.forEach(p=>{
+    const li=document.createElement('li');
+    li.innerHTML=`<div>
+      <strong>${escapeHtml(p.id)}</strong>
+      <div class="muted">From: ${escapeHtml(p.from_account)} • To: ${escapeHtml(p.to_entity)} • Amount: ${p.amount}</div>
+    </div>
+    <div class="row">
+      <button onclick="showEdit('${escapeAttr(p.id)}','${escapeAttr(p.from_account)}','${escapeAttr(p.to_entity)}','${p.amount}')">Edit</button>
+      <button onclick="deletePayment('${escapeAttr(p.id)}')">Delete</button>
+    </div>`;
+    list.appendChild(li);
+  });
+}
 
-      payments.forEach(payment => {
-        const item = document.createElement('li');
-        item.innerHTML = `
-          <strong>ID:</strong> ${payment.id},
-          <strong>Amount:</strong> ${payment.amount},
-          <strong>From Account:</strong> ${payment.from_account},
-          <strong>To Entity:</strong> ${payment.to_entity}
-          <button onclick="showEdit('${payment.id}', ${payment.amount}, '${payment.from_account}', '${payment.to_entity}')">Edit</button>
-          <button onclick="deletePayment('${payment.id}')">Delete</button>
-        `;
-        list.appendChild(item);
-      });
-    }
+async function createPayment(){
+  const id=document.getElementById('id').value.trim();
+  const from_account=document.getElementById('from_account').value.trim();
+  const to_entity=document.getElementById('to_entity').value.trim();
+  const amount=parseFloat(document.getElementById('amount').value.trim());
+  if(!id||!from_account||!to_entity||isNaN(amount)){alert('All fields required');return;}
+  const res=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,from_account,to_entity,amount})});
+  if(!res.ok){const err=await res.json().catch(()=>({}));alert('Failed to create: '+(err.error||res.status));return;}
+  document.getElementById('create-form').reset(); fetchPayments();
+}
 
-    async function createPayment() {
-      const id = document.getElementById('id').value.trim();
-      const amountStr = document.getElementById('amount').value.trim();
-      const from_account = document.getElementById('from_account').value.trim();
-      const to_entity = document.getElementById('to_entity').value.trim();
+function showEdit(id,from_account,to_entity,amount){
+  document.getElementById('edit-id').value=id;
+  document.getElementById('edit-from_account').value=from_account;
+  document.getElementById('edit-to_entity').value=to_entity;
+  document.getElementById('edit-amount').value=amount;
+  document.getElementById('edit-section').style.display='block';
+}
 
-      if (!id || !amountStr || !from_account || !to_entity) {
-        alert('Please fill all fields');
-        return;
-      }
+async function updatePayment(){
+  const id=document.getElementById('edit-id').value;
+  const from_account=document.getElementById('edit-from_account').value.trim();
+  const to_entity=document.getElementById('edit-to_entity').value.trim();
+  const amount=parseFloat(document.getElementById('edit-amount').value.trim());
+  if(!from_account||!to_entity||isNaN(amount)){alert('All fields required');return;}
+  const res=await fetch(`${API_URL}/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({from_account,to_entity,amount})});
+  if(!res.ok){const err=await res.json().catch(()=>({}));alert('Failed to update: '+(err.error||res.status));return;}
+  document.getElementById('edit-form').reset(); document.getElementById('edit-section').style.display='none'; fetchPayments();
+}
 
-      const amount = parseFloat(amountStr);
-      if (isNaN(amount)) {
-        alert('Amount must be a number');
-        return;
-      }
-
-      await fetch(API_URL, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({id, amount, from_account, to_entity})
-      });
-
-      document.getElementById('create-form').reset();
-      fetchPayments();
-    }
-
-    function showEdit(id, amount, from_account, to_entity) {
-      document.getElementById('edit-id').value = id;
-      document.getElementById('edit-amount').value = amount;
-      document.getElementById('edit-from_account').value = from_account;
-      document.getElementById('edit-to_entity').value = to_entity;
-      document.getElementById('edit-section').style.display = 'block';
-    }
-
-    async function updatePayment() {
-      const id = document.getElementById('edit-id').value;
-      const amountStr = document.getElementById('edit-amount').value.trim();
-      const from_account = document.getElementById('edit-from_account').value.trim();
-      const to_entity = document.getElementById('edit-to_entity').value.trim();
-
-      if (!amountStr || !from_account || !to_entity) {
-        alert('Please fill all fields');
-        return;
-      }
-
-      const amount = parseFloat(amountStr);
-      if (isNaN(amount)) {
-        alert('Amount must be a number');
-        return;
-      }
-
-      await fetch(`${API_URL}/${id}`, {
-        method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({amount, from_account, to_entity})
-      });
-
-      document.getElementById('edit-form').reset();
-      document.getElementById('edit-section').style.display = 'none';
-      fetchPayments();
-    }
-
-    async function deletePayment(id) {
-      if (!confirm('Are you sure you want to delete this payment?')) return;
-
-      await fetch(`${API_URL}/${id}`, {method: 'DELETE'});
-      fetchPayments();
-    }
-
-    window.onload = fetchPayments;
-  </script>
+async function deletePayment(id){if(!confirm('Delete this payment?')) return; const res=await fetch(`${API_URL}/${id}`,{method:'DELETE'}); if(!res.ok){const err=await res.json().catch(()=>({}));alert('Failed to delete: '+(err.error||res.status));return;} fetchPayments();}
+window.onload=fetchPayments;
+</script>
 </head>
 <body>
-  <h1>Manage Payments</h1>
+<h1>Manage Payments</h1>
 
-  <h2>Create Payment</h2>
-  <form id="create-form" onsubmit="event.preventDefault(); createPayment();">
-    <input id="id" placeholder="Payment ID" required />
-    <input id="amount" placeholder="Amount" type="number" step="0.01" required />
-    <input id="from_account" placeholder="From Account" required />
-    <input id="to_entity" placeholder="To Entity" required />
-    <button type="submit">Create</button>
-  </form>
+<h2>Create Payment</h2>
+<form id="create-form" onsubmit="event.preventDefault();createPayment();">
+<input id="id" placeholder="Payment ID" required>
+<input id="from_account" placeholder="From Account ID" required>
+<input id="to_entity" placeholder="To Entity" required>
+<input id="amount" placeholder="Amount" required type="number" step="0.01">
+<button type="submit">Create</button>
+</form>
 
-  <h2>Payment List</h2>
-  <ul id="payment-list"></ul>
+<h2>Payment List</h2>
+<ul id="payment-list"></ul>
 
-  <div id="edit-section" style="display:none;">
-    <h2>Edit Payment</h2>
-    <form id="edit-form" onsubmit="event.preventDefault(); updatePayment();">
-      <input type="hidden" id="edit-id" />
-      <input id="edit-amount" placeholder="Amount" type="number" step="0.01" required />
-      <input id="edit-from_account" placeholder="From Account" required />
-      <input id="edit-to_entity" placeholder="To Entity" required />
-      <button type="submit">Update</button>
-    </form>
-  </div>
+<div id="edit-section" style="display:none;">
+<h2>Edit Payment</h2>
+<form id="edit-form" onsubmit="event.preventDefault();updatePayment();">
+<input type="hidden" id="edit-id">
+<input id="edit-from_account" placeholder="From Account ID" required>
+<input id="edit-to_entity" placeholder="To Entity" required>
+<input id="edit-amount" placeholder="Amount" required type="number" step="0.01">
+<button type="submit">Update</button>
+</form>
+</div>
 </body>
 </html>

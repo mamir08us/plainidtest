@@ -1,122 +1,95 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Loans Management</title>
-  <script>
-    const API_URL = 'https://ec2-3-145-200-54.us-east-2.compute.amazonaws.com/pip/loans';
+<meta charset="UTF-8">
+<title>Loans Management</title>
+<style>
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:24px}
+h1,h2{margin:0 0 12px}
+form{margin:16px 0;display:grid;gap:8px;max-width:480px}
+input{padding:8px;font-size:14px}
+button{padding:8px 12px;cursor:pointer}
+ul{list-style:none;padding:0}
+li{padding:10px 8px;border:1px solid #ddd;border-radius:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.row{display:flex;gap:8px;align-items:center}
+.muted{color:#666;font-size:12px}
+#edit-section{border-top:1px solid #eee;margin-top:24px;padding-top:16px;max-width:480px}
+</style>
+<script>
+const API_URL='https://ec2-3-145-200-54.us-east-2.compute.amazonaws.com/pip/loans';
+function escapeHtml(str){return String(str).replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));}
+function escapeAttr(str){return String(str).replace(/['"\\]/g,s=>({"'":'&#39;','"':'&quot;','\\':'\\\\'}[s]));}
 
-    async function fetchLoans() {
-      const res = await fetch(API_URL);
-      const loans = await res.json();
-      const list = document.getElementById('loan-list');
-      list.innerHTML = '';
+async function fetchLoans(){
+  const res=await fetch(API_URL); if(!res.ok){alert('Failed to fetch loans');return;}
+  const items=await res.json(); const list=document.getElementById('loan-list'); list.innerHTML='';
+  items.forEach(l=>{
+    const li=document.createElement('li');
+    li.innerHTML=`<div>
+      <strong>${escapeHtml(l.id)}</strong>
+      <div class="muted">Amount: ${l.amount}, Status: ${escapeHtml(l.status)}</div>
+    </div>
+    <div class="row">
+      <button onclick="showEdit('${escapeAttr(l.id)}','${l.amount}','${escapeAttr(l.status)}')">Edit</button>
+      <button onclick="deleteLoan('${escapeAttr(l.id)}')">Delete</button>
+    </div>`;
+    list.appendChild(li);
+  });
+}
 
-      loans.forEach(loan => {
-        const item = document.createElement('li');
-        item.innerHTML = `
-          <strong>ID:</strong> ${loan.id},
-          <strong>Amount:</strong> ${loan.amount},
-          <strong>Status:</strong> ${loan.status}
-          <button onclick="showEdit('${loan.id}', ${loan.amount}, '${loan.status}')">Edit</button>
-          <button onclick="deleteLoan('${loan.id}')">Delete</button>
-        `;
-        list.appendChild(item);
-      });
-    }
+async function createLoan(){
+  const id=document.getElementById('id').value.trim();
+  const amount=parseFloat(document.getElementById('amount').value.trim());
+  const status=document.getElementById('status').value.trim();
+  if(!id||isNaN(amount)||!status){alert('All fields required');return;}
+  const res=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,amount,status})});
+  if(!res.ok){const err=await res.json().catch(()=>({}));alert('Failed to create: '+(err.error||res.status));return;}
+  document.getElementById('create-form').reset(); fetchLoans();
+}
 
-    async function createLoan() {
-      const id = document.getElementById('id').value.trim();
-      const amountStr = document.getElementById('amount').value.trim();
-      const status = document.getElementById('status').value.trim();
+function showEdit(id,amount,status){
+  document.getElementById('edit-id').value=id;
+  document.getElementById('edit-amount').value=amount;
+  document.getElementById('edit-status').value=status;
+  document.getElementById('edit-section').style.display='block';
+}
 
-      if (!id || !amountStr || !status) {
-        alert('Please fill all fields');
-        return;
-      }
+async function updateLoan(){
+  const id=document.getElementById('edit-id').value;
+  const amount=parseFloat(document.getElementById('edit-amount').value.trim());
+  const status=document.getElementById('edit-status').value.trim();
+  if(isNaN(amount)||!status){alert('All fields required');return;}
+  const res=await fetch(`${API_URL}/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,status})});
+  if(!res.ok){const err=await res.json().catch(()=>({}));alert('Failed to update: '+(err.error||res.status));return;}
+  document.getElementById('edit-form').reset(); document.getElementById('edit-section').style.display='none'; fetchLoans();
+}
 
-      const amount = parseFloat(amountStr);
-      if (isNaN(amount)) {
-        alert('Amount must be a number');
-        return;
-      }
-
-      await fetch(API_URL, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({id, amount, status})
-      });
-
-      document.getElementById('create-form').reset();
-      fetchLoans();
-    }
-
-    function showEdit(id, amount, status) {
-      document.getElementById('edit-id').value = id;
-      document.getElementById('edit-amount').value = amount;
-      document.getElementById('edit-status').value = status;
-      document.getElementById('edit-section').style.display = 'block';
-    }
-
-    async function updateLoan() {
-      const id = document.getElementById('edit-id').value;
-      const amountStr = document.getElementById('edit-amount').value.trim();
-      const status = document.getElementById('edit-status').value.trim();
-
-      if (!amountStr || !status) {
-        alert('Please fill all fields');
-        return;
-      }
-
-      const amount = parseFloat(amountStr);
-      if (isNaN(amount)) {
-        alert('Amount must be a number');
-        return;
-      }
-
-      await fetch(`${API_URL}/${id}`, {
-        method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({amount, status})
-      });
-
-      document.getElementById('edit-form').reset();
-      document.getElementById('edit-section').style.display = 'none';
-      fetchLoans();
-    }
-
-    async function deleteLoan(id) {
-      if (!confirm('Are you sure you want to delete this loan?')) return;
-
-      await fetch(`${API_URL}/${id}`, {method: 'DELETE'});
-      fetchLoans();
-    }
-
-    window.onload = fetchLoans;
-  </script>
+async function deleteLoan(id){if(!confirm('Delete this loan?')) return; const res=await fetch(`${API_URL}/${id}`,{method:'DELETE'}); if(!res.ok){const err=await res.json().catch(()=>({}));alert('Failed to delete: '+(err.error||res.status));return;} fetchLoans();}
+window.onload=fetchLoans;
+</script>
 </head>
 <body>
-  <h1>Manage Loans</h1>
+<h1>Manage Loans</h1>
 
-  <h2>Create Loan</h2>
-  <form id="create-form" onsubmit="event.preventDefault(); createLoan();">
-    <input id="id" placeholder="Loan ID" required />
-    <input id="amount" placeholder="Amount" type="number" step="0.01" required />
-    <input id="status" placeholder="Status" required />
-    <button type="submit">Create</button>
-  </form>
+<h2>Create Loan</h2>
+<form id="create-form" onsubmit="event.preventDefault();createLoan();">
+<input id="id" placeholder="Loan ID" required>
+<input id="amount" placeholder="Amount" required type="number" step="0.01">
+<input id="status" placeholder="Status" required>
+<button type="submit">Create</button>
+</form>
 
-  <h2>Loan List</h2>
-  <ul id="loan-list"></ul>
+<h2>Loan List</h2>
+<ul id="loan-list"></ul>
 
-  <div id="edit-section" style="display:none;">
-    <h2>Edit Loan</h2>
-    <form id="edit-form" onsubmit="event.preventDefault(); updateLoan();">
-      <input type="hidden" id="edit-id" />
-      <input id="edit-amount" placeholder="Amount" type="number" step="0.01" required />
-      <input id="edit-status" placeholder="Status" required />
-      <button type="submit">Update</button>
-    </form>
-  </div>
+<div id="edit-section" style="display:none;">
+<h2>Edit Loan</h2>
+<form id="edit-form" onsubmit="event.preventDefault();updateLoan();">
+<input type="hidden" id="edit-id">
+<input id="edit-amount" placeholder="Amount" required type="number" step="0.01">
+<input id="edit-status" placeholder="Status" required>
+<button type="submit">Update</button>
+</form>
+</div>
 </body>
 </html>
