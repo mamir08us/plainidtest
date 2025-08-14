@@ -1,13 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Users Management</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; }
+    h1, h2 { margin: 0 0 12px; }
+    form { margin: 16px 0; display: grid; gap: 8px; max-width: 420px; }
+    input { padding: 8px; font-size: 14px; }
+    button { padding: 8px 12px; cursor: pointer; }
+    ul { list-style: none; padding: 0; }
+    li { padding: 10px 8px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .row { display: flex; gap: 8px; align-items: center; }
+    .muted { color: #666; font-size: 12px; }
+    #edit-section { border-top: 1px solid #eee; margin-top: 24px; padding-top: 16px; max-width: 420px; }
+  </style>
   <script>
-    const API_URL = 'https://ec2-3-145-200-54.us-east-2.compute.amazonaws.com/pip/users';
+    // Use relative path so this works no matter where the server runs from (avoids CORS issues)
+    const API_URL = '/pip/users';
 
     async function fetchUsers() {
       const res = await fetch(API_URL);
+      if (!res.ok) {
+        alert('Failed to fetch users');
+        return;
+      }
       const users = await res.json();
       const list = document.getElementById('user-list');
       list.innerHTML = '';
@@ -15,25 +32,41 @@
       users.forEach(user => {
         const item = document.createElement('li');
         item.innerHTML = `
-          <strong>${user.username}</strong> (Email: ${user.email}, Role: ${user.role})
-          <button onclick="showEdit(${user.id}, '${user.username}', '${user.email}', '${user.role}')">Edit</button>
-          <button onclick="deleteUser(${user.id})">Delete</button>
+          <div>
+            <strong>${escapeHtml(user.username)}</strong>
+            <div class="muted">Email: ${escapeHtml(user.email || '')} &nbsp;•&nbsp; Role: ${escapeHtml(user.role || '')} &nbsp;•&nbsp; ID: ${user.id}</div>
+          </div>
+          <div class="row">
+            <button onclick="showEdit(${user.id}, '${escapeAttr(user.username)}', '${escapeAttr(user.email || '')}', '${escapeAttr(user.role || '')}')">Edit</button>
+            <button onclick="deleteUser(${user.id})">Delete</button>
+          </div>
         `;
         list.appendChild(item);
       });
     }
 
     async function createUser() {
-      const username = document.getElementById('username').value;
-      const email = document.getElementById('email').value;
-      const password = document.getElementById('password').value;
-      const role = document.getElementById('role').value;
+      const username = document.getElementById('username').value.trim();
+      const email    = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value.trim();
+      const role     = document.getElementById('role').value.trim();
 
-      await fetch(API_URL, {
+      if (!username || !password || !role) {
+        alert('Username, password, and role are required');
+        return;
+      }
+
+      const res = await fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, email, password, role })
       });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert('Failed to create user: ' + (err.error || res.status));
+        return;
+      }
 
       document.getElementById('create-form').reset();
       fetchUsers();
@@ -48,15 +81,26 @@
     }
 
     async function updateUser() {
-      const id = document.getElementById('edit-id').value;
-      const email = document.getElementById('edit-email').value;
-      const role = document.getElementById('edit-role').value;
+      const id    = document.getElementById('edit-id').value;
+      const email = document.getElementById('edit-email').value.trim();
+      const role  = document.getElementById('edit-role').value.trim();
 
-      await fetch(`${API_URL}/${id}`, {
+      if (!email && !role) {
+        alert('Provide email and/or role to update');
+        return;
+      }
+
+      const res = await fetch(`${API_URL}/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, role })
       });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert('Failed to update user: ' + (err.error || res.status));
+        return;
+      }
 
       document.getElementById('edit-form').reset();
       document.getElementById('edit-section').style.display = 'none';
@@ -64,8 +108,26 @@
     }
 
     async function deleteUser(id) {
-      await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+      if (!confirm('Delete this user?')) return;
+
+      const res = await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert('Failed to delete user: ' + (err.error || res.status));
+        return;
+      }
       fetchUsers();
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, s => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      })[s]);
+    }
+    function escapeAttr(str) {
+      return String(str).replace(/['"\\]/g, s => ({
+        "'": '&#39;', '"': '&quot;', '\\': '\\\\'
+      })[s]);
     }
 
     window.onload = fetchUsers;
@@ -77,9 +139,9 @@
   <h2>Create User</h2>
   <form id="create-form" onsubmit="event.preventDefault(); createUser();">
     <input id="username" placeholder="Username" required />
-    <input id="email" placeholder="Email" required />
-    <input id="password" placeholder="Password" required />
-    <input id="role" placeholder="Role" required />
+    <input id="email" type="email" placeholder="Email (optional)" />
+    <input id="password" type="password" placeholder="Password" required />
+    <input id="role" placeholder="Role (e.g., customer/admin)" required />
     <button type="submit">Create</button>
   </form>
 
@@ -91,8 +153,8 @@
     <form id="edit-form" onsubmit="event.preventDefault(); updateUser();">
       <input type="hidden" id="edit-id" />
       <input id="edit-username" placeholder="Username" disabled />
-      <input id="edit-email" placeholder="Email" required />
-      <input id="edit-role" placeholder="Role" required />
+      <input id="edit-email" type="email" placeholder="Email" />
+      <input id="edit-role" placeholder="Role" />
       <button type="submit">Update</button>
     </form>
   </div>
