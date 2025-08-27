@@ -17,7 +17,7 @@
   </style>
   <script>
     // Use relative path so this works no matter where the server runs from (avoids CORS issues)
-    const API_URL = 'https://ec2-18-224-99-48.us-east-2.compute.amazonaws.com:3001/pip/users';
+    const API_URL = 'https://ec2-18-224-99-48.us-east-2.compute.amazonaws.com/pip/users';
 
     async function fetchUsers() {
       const res = await fetch(API_URL);
