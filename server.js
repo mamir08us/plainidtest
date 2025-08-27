@@ -1,22 +1,26 @@
-// ❗ DEV ONLY: disable TLS cert validation (self-signed cert bypass)
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+// ❗ DEV/PROD SAFE: remove self-signed TLS bypass
+// process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 const express = require('express');
 const axios = require('axios');
 const session = require('express-session');
 const path = require('path');
-const assetRoutes = require('./assets-api'); // Import modular asset routes
+const assetRoutes = require('./assets-api'); // Modular asset routes
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Static user store
+// -----------------------------
+// Local users (for dev/testing)
+// -----------------------------
 const users = {
   'testuser': { password: 'password123', role: 'customer' },
   'adminuser': { password: 'adminpass', role: 'admin' }
 };
 
+// -----------------------------
 // ForgeRock OAuth2 settings
+// -----------------------------
 const CLIENT_ID = 'plainid_test_app';
 const CLIENT_SECRET = 'Admin@12345';
 const REDIRECT_URI = 'https://plainid.onrender.com/callback';
@@ -24,6 +28,9 @@ const FORGEROCK_AUTH_URL = 'https://openam-acnemea20230705.forgeblocks.com/am/oa
 const FORGEROCK_TOKEN_URL = 'https://openam-acnemea20230705.forgeblocks.com/am/oauth2/realms/root/realms/bravo/access_token';
 const FORGEROCK_USERINFO_URL = 'https://openam-acnemea20230705.forgeblocks.com/am/oauth2/realms/root/realms/bravo/userinfo';
 
+// -----------------------------
+// Middlewares
+// -----------------------------
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(session({
@@ -32,7 +39,9 @@ app.use(session({
   saveUninitialized: true
 }));
 
-// Local login
+// -----------------------------
+// Local login/register
+// -----------------------------
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
   const user = users[username];
@@ -44,26 +53,22 @@ app.post('/login', (req, res) => {
   res.status(401).json({ success: false, message: 'Invalid username or password' });
 });
 
-// Register
 app.post('/register', (req, res) => {
   const { username, password } = req.body;
-  if (!username || !password) {
-    return res.status(400).json({ success: false, message: 'Username and password required' });
-  }
-  if (users[username]) {
-    return res.status(400).json({ success: false, message: 'Username already exists' });
-  }
+  if (!username || !password) return res.status(400).json({ success: false, message: 'Username and password required' });
+  if (users[username]) return res.status(400).json({ success: false, message: 'Username already exists' });
   users[username] = { password, role: 'customer' };
   return res.json({ success: true, message: 'Registration successful' });
 });
 
+// -----------------------------
 // ForgeRock OAuth login
+// -----------------------------
 app.get('/auth/forgerock', (req, res) => {
   const authUrl = `${FORGEROCK_AUTH_URL}?response_type=code&client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=openid%20profile%20email&prompt=login`;
   res.redirect(authUrl);
 });
 
-// ForgeRock OAuth callback
 app.get('/callback', async (req, res) => {
   const { code } = req.query;
   console.log('📥 Received auth code:', code);
@@ -99,20 +104,20 @@ app.get('/callback', async (req, res) => {
   }
 });
 
-// Dashboard
+// -----------------------------
+// Dashboard & user info
+// -----------------------------
 app.get('/dashboard', (req, res) => {
   if (!req.session.accessToken) return res.redirect('/');
   res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
-// User info
 app.get('/me', (req, res) => {
   if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
   const { name, email, username, role } = req.session.user;
   res.json({ name, email, username, role });
 });
 
-// Logout
 app.get('/logout', (req, res) => {
   const redirectAfterLogout = 'https://plainid.onrender.com/?logged_out=true';
   req.session.destroy(err => {
@@ -125,10 +130,37 @@ app.get('/logout', (req, res) => {
   });
 });
 
-// ✅ Mount modular asset APIs (accounts, branches, payments, etc.)
+// -----------------------------
+// Mount modular asset APIs
+// -----------------------------
 app.use('/api/assets', assetRoutes);
 
+// -----------------------------
+// PIP API Proxy to EC2
+// -----------------------------
+const PIP_BASE_URL = 'https://plaintest.online'; // Your EC2 API
+app.use('/api/pip/:resource/:id?', async (req, res) => {
+  const { resource, id } = req.params;
+  const url = `${PIP_BASE_URL}/pip/${resource}${id ? '/' + id : ''}`;
+
+  try {
+    const axiosConfig = {
+      method: req.method,
+      url,
+      headers: { 'Content-Type': 'application/json' },
+      data: Object.keys(req.body || {}).length ? req.body : undefined,
+    };
+    const response = await axios(axiosConfig);
+    res.status(response.status).json(response.data);
+  } catch (err) {
+    console.error(`❌ Proxy error [${req.method} ${url}]:`, err.message);
+    res.status(err.response?.status || 500).json({ error: 'PIP API proxy failed', details: err.message });
+  }
+});
+
+// -----------------------------
 // Start server
+// -----------------------------
 app.listen(port, () => {
   console.log(`🚀 Server running on http://localhost:${port}`);
 });
