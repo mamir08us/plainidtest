@@ -22,7 +22,7 @@ const users = {
 // ForgeRock OAuth2 settings
 // -----------------------------
 const CLIENT_ID = 'plainid_test_app';
-const CLIENT_SECRET = 'Admin@12345';
+const CLIENT_SECRET = 'XXXXXXX';
 const REDIRECT_URI = 'https://plainid.onrender.com/callback';
 const FORGEROCK_AUTH_URL = 'https://openam-acnemea20230705.forgeblocks.com/am/oauth2/realms/root/realms/bravo/authorize';
 const FORGEROCK_TOKEN_URL = 'https://openam-acnemea20230705.forgeblocks.com/am/oauth2/realms/root/realms/bravo/access_token';
